@@ -14,6 +14,12 @@
 
       <!-- Right navbar links -->
       <ul class="navbar-nav ml-auto">
+        <!-- Theme Switcher -->
+        <li class="nav-item">
+          <a class="nav-link" href="#" role="button" @click.prevent="toggleDarkMode">
+            <i :class="isDarkMode ? 'fas fa-sun' : 'fas fa-moon'"></i>
+          </a>
+        </li>
         <li class="nav-item">
           <a class="nav-link" data-widget="fullscreen" href="#" role="button">
             <i class="fas fa-expand-arrows-alt"></i>
@@ -160,7 +166,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, onBeforeUnmount } from 'vue';
 import { router, usePage } from '@inertiajs/vue3';
 
 const props = defineProps({
@@ -172,6 +178,31 @@ const props = defineProps({
 
 // Get the authenticated user from Laravel
 const user = computed(() => usePage().props.auth.user);
+
+// Dark mode state
+const isDarkMode = ref(localStorage.getItem('darkMode') === 'true');
+
+// Toggle dark mode function
+function toggleDarkMode() {
+  isDarkMode.value = !isDarkMode.value;
+  localStorage.setItem('darkMode', isDarkMode.value);
+  applyTheme();
+}
+
+// Apply theme based on current state
+function applyTheme() {
+  if (isDarkMode.value) {
+    document.body.classList.add('dark-mode');
+    document.querySelector('.main-header').classList.add('navbar-dark');
+    document.querySelector('.main-header').classList.remove('navbar-light');
+    document.querySelector('.main-header').classList.remove('navbar-white');
+  } else {
+    document.body.classList.remove('dark-mode');
+    document.querySelector('.main-header').classList.remove('navbar-dark');
+    document.querySelector('.main-header').classList.add('navbar-light');
+    document.querySelector('.main-header').classList.add('navbar-white');
+  }
+}
 
 function logout() {
   router.post(route('logout'));
@@ -235,11 +266,15 @@ onMounted(() => {
   // Initialize on first load
   initAdminLTE();
   
+  // Apply theme on component mount
+  applyTheme();
+  
   // Also initialize after each Inertia navigation
   router.on('finish', () => {
     // Small delay to ensure DOM is updated
     setTimeout(() => {
       initAdminLTE();
+      applyTheme();
     }, 50);
   });
   
@@ -279,6 +314,11 @@ onMounted(() => {
       });
     });
   }
+});
+
+// Clean up event listeners when component is unmounted
+onBeforeUnmount(() => {
+  router.off('finish');
 });
 </script>
 
@@ -339,6 +379,120 @@ onMounted(() => {
 .hover-bg-light:hover {
   background-color: rgba(255, 255, 255, 0.1);
   transition: background-color 0.2s;
+}
+
+/* Dark mode enhancements */
+body.dark-mode {
+  /* Main background and text colors */
+  background-color: #121212;
+  color: #f8f9fa;
+}
+
+/* Dark mode card styling */
+body.dark-mode .card {
+  background-color: #1e1e1e;
+  border-color: #2c2c2c;
+}
+
+body.dark-mode .card-header {
+  background-color: #2a2a2a;
+  border-bottom-color: #333;
+}
+
+body.dark-mode .card-footer {
+  background-color: #2a2a2a;
+  border-top-color: #333;
+}
+
+/* Dark mode content wrapper */
+body.dark-mode .content-wrapper {
+  background-color: #121212;
+}
+
+/* Dark mode table styling */
+body.dark-mode .table {
+  color: #e0e0e0;
+}
+
+body.dark-mode .table-bordered {
+  border-color: #333;
+}
+
+body.dark-mode .table-bordered td,
+body.dark-mode .table-bordered th {
+  border-color: #333;
+}
+
+body.dark-mode .table-hover tbody tr:hover {
+  background-color: rgba(255, 255, 255, 0.075);
+}
+
+/* Dark mode input styling */
+body.dark-mode .form-control {
+  background-color: #2a2a2a;
+  border-color: #444;
+  color: #e0e0e0;
+}
+
+body.dark-mode .form-control:focus {
+  background-color: #323232;
+  border-color: #666;
+  box-shadow: 0 0 0 0.2rem rgba(130, 138, 145, 0.25);
+}
+
+/* Dark mode footer */
+body.dark-mode .main-footer {
+  background-color: #1a1a1a;
+  border-top-color: #333;
+  color: #e0e0e0;
+}
+
+/* Dark mode modal styling */
+body.dark-mode .modal-content {
+  background-color: #2a2a2a;
+  border-color: #444;
+}
+
+body.dark-mode .modal-header,
+body.dark-mode .modal-footer {
+  border-color: #444;
+}
+
+/* Dark mode toast/alert styling */
+body.dark-mode .toast {
+  background-color: #2a2a2a;
+  border-color: #444;
+}
+
+body.dark-mode .alert-success {
+  background-color: rgba(40, 167, 69, 0.2);
+  border-color: rgba(40, 167, 69, 0.3);
+  color: #75b798;
+}
+
+body.dark-mode .alert-danger {
+  background-color: rgba(220, 53, 69, 0.2);
+  border-color: rgba(220, 53, 69, 0.3);
+  color: #ea868f;
+}
+
+/* Dark mode dropdown styling */
+body.dark-mode .dropdown-menu {
+  background-color: #2a2a2a;
+  border-color: #444;
+}
+
+body.dark-mode .dropdown-item {
+  color: #e0e0e0;
+}
+
+body.dark-mode .dropdown-item:hover {
+  background-color: #333;
+  color: #fff;
+}
+
+body.dark-mode .dropdown-divider {
+  border-color: #444;
 }
 
 /* Make sure dropdown toggle has a pointer cursor */
