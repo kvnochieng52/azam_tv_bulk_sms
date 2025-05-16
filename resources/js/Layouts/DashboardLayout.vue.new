@@ -1,5 +1,5 @@
 <template>
-  <div class="wrapper" :class="{ 'sidebar-collapse': sidebarCollapsed, 'sidebar-open': sidebarOpen && isMobile }">
+  <div class="wrapper" :class="{ 'sidebar-collapse': sidebarCollapsed }">
     <!-- Navbar -->
     <nav class="main-header navbar navbar-expand navbar-white navbar-light">
       <!-- Left navbar links -->
@@ -88,7 +88,7 @@
         <nav class="mt-2">
           <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
             <li class="nav-item">
-              <Link :href="route('dashboard')" class="nav-link" :class="{ 'active': $page.url === '/' || $page.url === '/dashboard' }">
+              <Link :href="route('dashboard')" class="nav-link" :class="{ 'active': $page.url === '/' }">
                 <i class="nav-icon fas fa-tachometer-alt"></i>
                 <p>Dashboard</p>
               </Link>
@@ -103,19 +103,19 @@
               </a>
               <ul class="nav nav-treeview" :style="{ display: isMenuOpen('sms') ? 'block' : 'none' }">
                 <li class="nav-item">
-                  <Link :href="route('sms.create')" class="nav-link" :class="{ 'active': $page.url.startsWith('/sms/send') }">
+                  <Link :href="route('sms.create')" class="nav-link">
                     <i class="far fa-paper-plane nav-icon"></i>
                     <p>Send SMS</p>
                   </Link>
                 </li>
                 <li class="nav-item">
-                  <Link :href="route('sms.index')" class="nav-link" :class="{ 'active': $page.url === '/sms' || $page.url.startsWith('/sms?') }">
+                  <Link :href="route('sms.index')" class="nav-link">
                     <i class="far fa-list-alt nav-icon"></i>
                     <p>SMS Management</p>
                   </Link>
                 </li>
                 <li class="nav-item">
-                  <Link :href="route('sms.logs')" class="nav-link" :class="{ 'active': $page.url.startsWith('/sms/logs') }">
+                  <Link :href="route('sms.logs')" class="nav-link">
                     <i class="far fa-file-alt nav-icon"></i>
                     <p>SMS Logs</p>
                   </Link>
@@ -126,19 +126,19 @@
               <a href="#" class="nav-link" @click.prevent="toggleMenu('contacts')">
                 <i class="nav-icon fas fa-address-book"></i>
                 <p>
-                  Contacts
+                  Contacts Management
                   <i class="fas fa-angle-left right"></i>
                 </p>
               </a>
               <ul class="nav nav-treeview" :style="{ display: isMenuOpen('contacts') ? 'block' : 'none' }">
                 <li class="nav-item">
-                  <Link :href="route('contacts.index')" class="nav-link" :class="{ 'active': $page.url === '/contacts' || $page.url.startsWith('/contacts?') }">
+                  <Link :href="route('contacts.index')" class="nav-link">
                     <i class="far fa-list-alt nav-icon"></i>
                     <p>View Contacts</p>
                   </Link>
                 </li>
                 <li class="nav-item">
-                  <Link :href="route('contacts.create')" class="nav-link" :class="{ 'active': $page.url.startsWith('/contacts/create') }">
+                  <Link :href="route('contacts.create')" class="nav-link">
                     <i class="fas fa-plus nav-icon"></i>
                     <p>Create Contact</p>
                   </Link>
@@ -192,10 +192,8 @@ const props = defineProps({
 
 // Reactive variables for UI state
 const sidebarCollapsed = ref(false);
-const sidebarOpen = ref(false); // For mobile view
-const isMobile = ref(window.innerWidth < 992);
 const activeMenuItem = ref('');
-const openMenus = ref([]); // All menus collapsed by default
+const openMenus = ref(['sms', 'contacts']); // Default open menus
 const userDropdownOpen = ref(false);
 const sidebarUserPanelOpen = ref(false);
 const darkMode = ref(localStorage.getItem('darkMode') === 'true');
@@ -203,15 +201,9 @@ const darkMode = ref(localStorage.getItem('darkMode') === 'true');
 // Get the authenticated user from Laravel
 const user = computed(() => usePage().props.auth.user);
 
-// Toggle sidebar collapsed/open state
+// Toggle sidebar collapsed state
 function toggleSidebar() {
-  if (isMobile.value) {
-    // On mobile, toggle the sidebar-open class
-    sidebarOpen.value = !sidebarOpen.value;
-  } else {
-    // On desktop, toggle the sidebar-collapse class
-    sidebarCollapsed.value = !sidebarCollapsed.value;
-  }
+  sidebarCollapsed.value = !sidebarCollapsed.value;
 }
 
 // Toggle menu item expansion
@@ -258,15 +250,6 @@ function logout() {
 function setActiveMenuItem() {
   const currentUrl = window.location.pathname;
   activeMenuItem.value = currentUrl;
-  
-  // Automatically expand parent menus if they contain the active item
-  if (currentUrl.includes('/sms') && !openMenus.value.includes('sms')) {
-    openMenus.value.push('sms');
-  }
-  
-  if (currentUrl.includes('/contacts') && !openMenus.value.includes('contacts')) {
-    openMenus.value.push('contacts');
-  }
 }
 
 // Toggle dark mode
@@ -311,15 +294,6 @@ function handleClickOutside(e) {
   }
 }
 
-// Handle window resize and update isMobile state
-function handleResize() {
-  isMobile.value = window.innerWidth < 992;
-  // Close sidebar on mobile when resizing from desktop to mobile
-  if (isMobile.value) {
-    sidebarOpen.value = false;
-  }
-}
-
 // Initialize Vue functionality after component is mounted
 onMounted(() => {
   // Set initial active menu item
@@ -331,23 +305,15 @@ onMounted(() => {
   // Add click outside listener for dropdowns
   document.addEventListener('click', handleClickOutside);
   
-  // Add resize event listener for responsive behavior
-  window.addEventListener('resize', handleResize);
-  
   // Listen for Inertia navigation events to update active menu
-  router.on('success', () => {
-    // Update active menu item and expand appropriate parent menu
+  router.on('finish', () => {
     setActiveMenuItem();
   });
-  
-  // Set initial state based on current URL
-  setActiveMenuItem();
 });
 
 // Clean up event listeners when component is destroyed
 onBeforeUnmount(() => {
   document.removeEventListener('click', handleClickOutside);
-  window.removeEventListener('resize', handleResize);
   
   // Clean up Inertia navigation event listener
   if (router.off) {
@@ -357,24 +323,6 @@ onBeforeUnmount(() => {
 </script>
 
 <style>
-/* Remove default gray background from submenus */
-.nav-sidebar .nav-treeview {
-  background-color: transparent !important;
-}
-
-/* Remove blue background from parent menu items with submenus */
-.nav-sidebar .nav-item.menu-open > .nav-link,
-.nav-sidebar .nav-item.menu-is-opening > .nav-link {
-  background-color: transparent !important;
-  color: #c2c7d0 !important;
-}
-
-/* Only apply blue background to active links */
-.nav-sidebar .nav-link.active {
-  background-color: #007bff !important;
-  color: #fff !important;
-}
-
 /* Fix AdminLTE navigation with Vue */
 .nav-sidebar .nav-item .nav-link .right, 
 .nav-sidebar .nav-item .nav-link p .fa-angle-left.right,

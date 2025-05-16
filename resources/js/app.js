@@ -5,8 +5,8 @@ import { createInertiaApp } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';
 
-// Import AdminLTE JS
-import 'admin-lte/dist/js/adminlte.min.js';
+// We've removed AdminLTE JavaScript completely
+// Instead, we're implementing the necessary functionality directly in Vue
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
