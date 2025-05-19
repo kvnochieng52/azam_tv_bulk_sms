@@ -321,7 +321,7 @@
           <div class="modal-footer">
             <button type="button" class="btn btn-outline-secondary" @click="closeFileUploadModal" :disabled="isValidatingCsv">Cancel</button>
             <button type="button" class="btn btn-primary" @click="confirmFileUpload" :disabled="!csvFile || isValidatingCsv || csvValidationError">
-              <i class="fas" :class="isValidatingCsv ? 'fa-spinner fa-spin' : 'fa-check me-1'"></i> {{ isValidatingCsv ? '' : 'Upload File' }}
+              <i class="fas" :class="isValidatingCsv ? 'fa-spinner fa-spin' : 'fa-check me-1'"></i> {{ isValidatingCsv ? 'Processing...' : 'Upload File' }}
             </button>
           </div>
         </div>
@@ -340,7 +340,9 @@
             <!-- Loading state -->
             <div v-if="isLoadingPreview" class="text-center p-4">
               <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
               </div>
+              <p class="mt-2">Validating contacts...</p>
             </div>
             
             <!-- Preview data -->
@@ -517,19 +519,20 @@ const formatDisplayDate = (dateStr, timeStr) => {
 // Combine date and time inputs into a single Date object before form submission
 const updateScheduleDate = () => {
   if (scheduleDateInput.value && scheduleTimeInput.value) {
-    // Create a new Date object from the date and time inputs
     const [year, month, day] = scheduleDateInput.value.split('-');
     const [hours, minutes] = scheduleTimeInput.value.split(':');
     
+    // Create date using UTC to avoid timezone shifts
     const scheduleDate = new Date(
-      parseInt(year),
-      parseInt(month) - 1, // Month is 0-based in JavaScript
-      parseInt(day),
-      parseInt(hours),
-      parseInt(minutes)
+      Date.UTC(
+        parseInt(year),
+        parseInt(month) - 1,
+        parseInt(day),
+        parseInt(hours),
+        parseInt(minutes)
+      )
     );
     
-    // Update the form's schedule_date
     form.schedule_date = scheduleDate;
   }
 };
@@ -978,14 +981,14 @@ const previewMessage = async () => {
     const formData = new FormData();
     
     // Show debug info
-    console.log('Form state before sending:', {
-      text_title: form.text_title,
-      message: form.message,
-      contact_type: form.contact_type,
-      recepient_contacts: form.recepient_contacts,
-      contact_list: form.contact_list,
-      csv_file_path: form.csv_file_path
-    });
+    // console.log('Form state before sending:', {
+    //   text_title: form.text_title,
+    //   message: form.message,
+    //   contact_type: form.contact_type,
+    //   recepient_contacts: form.recepient_contacts,
+    //   contact_list: form.contact_list,
+    //   csv_file_path: form.csv_file_path
+    // });
     
     // CRITICAL: Determine correct contact_type value for backend
     let backendContactType = form.contact_type;
@@ -2259,5 +2262,7 @@ onMounted(() => {
   color: #4b5563;
 }
 
-#previewModal .card-body{ padding: 3px !important;}
+#previewModal .card-body{ padding: 8px !important;}
+#previewModal .card-header{ padding: 8px !important;}
+
 </style>

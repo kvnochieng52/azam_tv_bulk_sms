@@ -8,7 +8,13 @@ use Illuminate\Database\Eloquent\Model;
 class TextStatus extends Model
 {
     use HasFactory;
-    
+    const PROCESSING = 1;
+    const QUEUED = 2;
+    const SENT = 3;
+    const FAILED = 4;
+    const CANCELLED = 5;
+    const SCHEDULED = 6;
+
     /**
      * The attributes that are mass assignable.
      *
@@ -21,7 +27,7 @@ class TextStatus extends Model
         'color_code',
         'description',
     ];
-    
+
     /**
      * The attributes that should be cast.
      *
@@ -31,7 +37,7 @@ class TextStatus extends Model
         'is_active' => 'boolean',
         'order' => 'integer',
     ];
-    
+
     /**
      * Get all texts with this status.
      */
@@ -39,7 +45,7 @@ class TextStatus extends Model
     {
         return $this->hasMany(Text::class, 'status', 'id');
     }
-    
+
     /**
      * Get all queues with this status.
      */

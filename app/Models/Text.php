@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 class Text extends Model
 {
     use HasFactory;
-    
+
     /**
      * The attributes that are mass assignable.
      *
@@ -28,12 +28,12 @@ class Text extends Model
         'message',
         'scheduled',
         'schedule_date',
-        'status',
+        'status_id',
         'created_by',
         'updated_by',
         'contacts_count',
     ];
-    
+
     /**
      * The attributes that should be cast.
      *
@@ -43,35 +43,35 @@ class Text extends Model
         'scheduled' => 'boolean',
         'schedule_date' => 'datetime',
         'contacts_count' => 'integer',
-        'status' => 'integer',
+        'status_id' => 'integer',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
-    
+
     /**
      * Get the text status associated with the text.
      */
     public function status()
     {
-        return $this->belongsTo(TextStatus::class, 'status', 'id');
+        return $this->belongsTo(TextStatus::class, 'status_id');
     }
-    
+
     /**
      * Get the user who created the text.
      */
     public function creator()
     {
-        return $this->belongsTo(User::class, 'created_by', 'id');
+        return $this->belongsTo(User::class, 'created_by');
     }
-    
+
     /**
      * Get the user who last updated the text.
      */
     public function updater()
     {
-        return $this->belongsTo(User::class, 'updated_by', 'id');
+        return $this->belongsTo(User::class, 'updated_by');
     }
-    
+
     /**
      * Get all queues associated with this text.
      */

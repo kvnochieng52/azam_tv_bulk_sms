@@ -19,11 +19,12 @@ return new class extends Migration
             $table->text('csv_file_path')->nullable();
             $table->text('csv_file_name')->nullable();
             $table->text('csv_file_columns')->nullable();
+            $table->string('csv_phone_column')->nullable();
             $table->text('contact_list')->nullable();
             $table->text('message')->nullable();
             $table->integer('scheduled')->nullable();
             $table->dateTime('schedule_date')->nullable();
-            $table->integer('status')->nullable();
+            $table->integer('status_id')->nullable();
             $table->bigInteger('created_by')->nullable();
             $table->bigInteger('updated_by')->nullable();
             $table->bigInteger('contacts_count')->nullable();
