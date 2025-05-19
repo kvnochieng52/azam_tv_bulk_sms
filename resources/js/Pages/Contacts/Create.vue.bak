@@ -1,0 +1,242 @@
+<template>
+  <DashboardLayout>
+    <div class="row">
+      <div class="col-12">
+        <div class="card">
+          <div class="card-header bg-white">
+            <div class="d-flex justify-content-between align-items-center">
+              <h3 class="card-title">Create New Contact</h3>
+              <Link :href="route('contacts.index')" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-arrow-left me-1"></i> Back to Contacts
+              </Link>
+            </div>
+          </div>
+          <div class="card-body">
+            <form @submit.prevent="submit">
+              <!-- Contact Group Details -->
+              <div class="mb-4">
+                <div class="card custom-card mb-4">
+                  <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="fas fa-address-card me-2"></i>Contact Group Details</h5>
+                  </div>
+                  <div class="card-body">
+                    <div class="row">
+                      <div class="col-md-6">
+                        <div class="mb-3">
+                          <label for="title" class="form-label fw-bold">Title <span class="text-danger">*</span></label>
+                          <input
+                            type="text"
+                            id="title"
+                            v-model="form.title"
+                            class="form-control"
+                            :class="{ 'is-invalid': form.errors.title }"
+                            placeholder="Enter contact group title"
+                          />
+                          <div v-if="form.errors.title" class="invalid-feedback">{{ form.errors.title }}</div>
+                        </div>
+                      </div>
+                      <div class="col-md-6">
+                        <div class="mb-3">
+                          <label for="is_active" class="form-label fw-bold">Status</label>
+                          <select 
+                            id="is_active" 
+                            v-model="form.is_active" 
+                            class="form-select"
+                            :class="{ 'is-invalid': form.errors.is_active }"
+                          >
+                            <option :value="1">Active</option>
+                            <option :value="0">Inactive</option>
+                          </select>
+                          <div v-if="form.errors.is_active" class="invalid-feedback">{{ form.errors.is_active }}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Contact List -->
+              <div class="mb-4">
+                <div class="card custom-card">
+                  <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-users me-2"></i>Contact List</h5>
+                    <button type="button" class="btn btn-sm btn-primary" @click="addContact">
+                      <i class="fas fa-plus me-1"></i> Add Contact
+                    </button>
+                  </div>
+                  <div class="card-body">
+                    <div v-if="form.contact_lists.length === 0" class="alert alert-info">
+                      <i class="fas fa-info-circle me-2"></i> No contacts added yet. Click the "Add Contact" button to add contacts.
+                    </div>
+
+                    <div v-else>
+                      <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                          <thead class="bg-light">
+                            <tr>
+                              <th style="width: 45%">
+                                <i class="fas fa-user me-1"></i> Name
+                              </th>
+                              <th style="width: 40%">
+                                <i class="fas fa-phone me-1"></i> Telephone
+                              </th>
+                              <th style="width: 15%" class="text-center">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr v-for="(contact, index) in form.contact_lists" :key="index">
+                              <td>
+                                <input
+                                  type="text"
+                                  v-model="contact.name"
+                                  class="form-control"
+                                  :class="{ 'is-invalid': form.errors[`contact_lists.${index}.name`] }"
+                                  placeholder="Contact name"
+                                />
+                                <div v-if="form.errors[`contact_lists.${index}.name`]" class="invalid-feedback">
+                                  {{ form.errors[`contact_lists.${index}.name`] }}
+                                </div>
+                              </td>
+                              <td>
+                                <input
+                                  type="text"
+                                  v-model="contact.telephone"
+                                  class="form-control"
+                                  :class="{ 'is-invalid': form.errors[`contact_lists.${index}.telephone`] }"
+                                  placeholder="Phone number"
+                                />
+                                <div v-if="form.errors[`contact_lists.${index}.telephone`]" class="invalid-feedback">
+                                  {{ form.errors[`contact_lists.${index}.telephone`] }}
+                                </div>
+                              </td>
+                              <td class="text-center">
+                                <button 
+                                  type="button" 
+                                  class="btn btn-sm btn-outline-danger" 
+                                  @click="removeContact(index)"
+                                  title="Remove Contact"
+                                >
+                                  <i class="fas fa-trash"></i>
+                                </button>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="d-flex justify-content-between mt-4">
+                <Link :href="route('contacts.index')" class="btn btn-outline-secondary">
+                  <i class="fas fa-times me-1"></i> Cancel
+                </Link>
+                <button type="submit" class="btn btn-primary px-4">
+                  <i class="fas fa-save me-1"></i> Save Contact
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </DashboardLayout>
+</template>
+
+<script setup>
+import { useForm, Link } from '@inertiajs/vue3';
+import DashboardLayout from '@/Layouts/DashboardLayout.vue';
+
+const form = useForm({
+  title: '',
+  is_active: 1,
+  contact_lists: [],
+  created_by: null,
+  updated_by: null
+});
+
+// Function to add a new contact to the list
+function addContact() {
+  form.contact_lists.push({
+    name: '',
+    telephone: ''
+  });
+}
+
+// Function to remove a contact from the list
+function removeContact(index) {
+  form.contact_lists.splice(index, 1);
+}
+
+// Initialize with an empty contact to avoid errors on first submission
+if (form.contact_lists.length === 0) {
+  addContact();
+}
+
+const submit = () => {
+  form.post(route('contacts.store'), {
+    onSuccess: () => {
+      // Reset form
+      form.reset();
+    }
+  });
+};
+</script>
+
+<style scoped>
+/* Custom card styling */
+.custom-card {
+  border-radius: 0.5rem;
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  border: none;
+  overflow: hidden;
+}
+
+.card-header {
+  padding: 0.75rem 1.25rem;
+}
+
+/* Form controls */
+.form-control:focus,
+.form-select:focus {
+  border-color: #80bdff;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+/* Table styling */
+.table th {
+  font-weight: 600;
+  font-size: 0.85rem;
+  border-bottom-width: 1px;
+}
+
+.table td {
+  vertical-align: middle;
+}
+
+/* Button styling */
+.btn-outline-danger:hover,
+.btn-outline-secondary:hover,
+.btn-primary:hover {
+  transform: translateY(-1px);
+  transition: all 0.2s;
+}
+
+.btn-primary {
+  background-color: #0d6efd;
+  border-color: #0d6efd;
+}
+
+.btn-primary:hover {
+  background-color: #0b5ed7;
+  border-color: #0a58ca;
+}
+
+/* Alert styling */
+.alert-info {
+  background-color: #f0f7ff;
+  border-color: #cfe2ff;
+  color: #084298;
+}
+</style>

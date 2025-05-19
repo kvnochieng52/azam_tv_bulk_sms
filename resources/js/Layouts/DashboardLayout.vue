@@ -1,11 +1,24 @@
 <template>
-  <div class="wrapper" :class="{ 'sidebar-collapse': sidebarCollapsed, 'sidebar-open': sidebarOpen && isMobile }">
+  <LoadingBar />
+  <div
+    class="wrapper"
+    :class="{
+      'sidebar-collapse': sidebarCollapsed,
+      'sidebar-open': sidebarOpen && isMobile,
+    }"
+  >
     <!-- Navbar -->
     <nav class="main-header navbar navbar-expand navbar-white navbar-light">
       <!-- Left navbar links -->
       <ul class="navbar-nav">
         <li class="nav-item">
-          <a class="nav-link" href="#" role="button" @click.prevent="toggleSidebar"><i class="fas fa-bars"></i></a>
+          <a
+            class="nav-link"
+            href="#"
+            role="button"
+            @click.prevent="toggleSidebar"
+            ><i class="fas fa-bars"></i
+          ></a>
         </li>
         <li class="nav-item d-none d-sm-inline-block">
           <a href="#" class="nav-link">Home</a>
@@ -16,22 +29,43 @@
       <ul class="navbar-nav ml-auto">
         <!-- Theme Switcher -->
         <li class="nav-item">
-          <a class="nav-link" href="#" role="button" @click.prevent="toggleDarkMode">
+          <a
+            class="nav-link"
+            href="#"
+            role="button"
+            @click.prevent="toggleDarkMode"
+          >
             <i :class="darkMode ? 'fas fa-sun' : 'fas fa-moon'"></i>
           </a>
         </li>
         <li class="nav-item">
-          <a class="nav-link" href="#" role="button" @click.prevent="toggleFullscreen">
+          <a
+            class="nav-link"
+            href="#"
+            role="button"
+            @click.prevent="toggleFullscreen"
+          >
             <i class="fas fa-expand-arrows-alt"></i>
           </a>
         </li>
         <li class="nav-item dropdown">
-          <a class="nav-link" href="#" id="userDropdown" role="button" @click.prevent="toggleUserDropdown" :aria-expanded="userDropdownOpen">
+          <a
+            class="nav-link"
+            href="#"
+            id="userDropdown"
+            role="button"
+            @click.prevent="toggleUserDropdown"
+            :aria-expanded="userDropdownOpen"
+          >
             <i class="fas fa-user-circle"></i>
           </a>
-          <div class="dropdown-menu dropdown-menu-right" :class="{ 'show': userDropdownOpen }" aria-labelledby="userDropdown">
+          <div
+            class="dropdown-menu dropdown-menu-right"
+            :class="{ show: userDropdownOpen }"
+            aria-labelledby="userDropdown"
+          >
             <div class="dropdown-header text-center pb-2 pt-2 border-bottom">
-              <strong>{{ user?.name || 'Administrator' }}</strong>
+              <strong>{{ user?.name || "Administrator" }}</strong>
             </div>
             <a href="#" class="dropdown-item py-2">
               <i class="fas fa-user mr-2 text-primary"></i> My Profile
@@ -53,7 +87,18 @@
     <aside class="main-sidebar sidebar-dark-primary elevation-4">
       <!-- Brand Logo -->
       <a href="/" class="brand-link text-center py-3">
-        <img src="/images/logo.png" alt="Azam TV Logo" class="img-fluid" style="max-width: 140px; margin-bottom: 5px; display: block; margin-left: auto; margin-right: auto;">
+        <img
+          src="/images/logo.png"
+          alt="Azam TV Logo"
+          class="img-fluid"
+          style="
+            max-width: 140px;
+            margin-bottom: 5px;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+          "
+        />
       </a>
 
       <!-- Sidebar -->
@@ -65,19 +110,34 @@
               <i class="fas fa-user-circle fa-2x text-light"></i>
             </div>
             <div class="info">
-              <a href="#" class="d-block dropdown-toggle" @click.prevent="toggleSidebarUserPanel">
-                {{ user?.name || 'Administrator' }}
+              <a
+                href="#"
+                class="d-block dropdown-toggle"
+                @click.prevent="toggleSidebarUserPanel"
+              >
+                {{ user?.name || "Administrator" }}
               </a>
             </div>
           </div>
-          
+
           <!-- User options dropdown -->
-          <div id="userOptions" class="mt-2" :class="{ 'd-none': !sidebarUserPanelOpen }">
+          <div
+            id="userOptions"
+            class="mt-2"
+            :class="{ 'd-none': !sidebarUserPanelOpen }"
+          >
             <div class="bg-dark rounded p-2 ml-2">
-              <a href="#" class="text-white d-block py-1 px-2 rounded hover-bg-light">
+              <a
+                href="#"
+                class="text-white d-block py-1 px-2 rounded hover-bg-light"
+              >
                 <i class="fas fa-user-edit mr-2"></i> Edit Profile
               </a>
-              <a href="#" class="text-white d-block py-1 px-2 rounded hover-bg-light" @click.prevent="logout">
+              <a
+                href="#"
+                class="text-white d-block py-1 px-2 rounded hover-bg-light"
+                @click.prevent="logout"
+              >
                 <i class="fas fa-sign-out-alt mr-2"></i> Logout
               </a>
             </div>
@@ -86,9 +146,20 @@
 
         <!-- Sidebar Menu -->
         <nav class="mt-2">
-          <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
+          <ul
+            class="nav nav-pills nav-sidebar flex-column"
+            data-widget="treeview"
+            role="menu"
+            data-accordion="false"
+          >
             <li class="nav-item">
-              <Link :href="route('dashboard')" class="nav-link" :class="{ 'active': $page.url === '/' || $page.url === '/dashboard' }">
+              <Link
+                :href="route('dashboard')"
+                class="nav-link"
+                :class="{
+                  active: $page.url === '/' || $page.url === '/dashboard',
+                }"
+              >
                 <i class="nav-icon fas fa-tachometer-alt"></i>
                 <p>Dashboard</p>
               </Link>
@@ -101,44 +172,82 @@
                   <i class="fas fa-angle-left right"></i>
                 </p>
               </a>
-              <ul class="nav nav-treeview" :style="{ display: isMenuOpen('sms') ? 'block' : 'none' }">
+              <ul
+                class="nav nav-treeview"
+                :style="{ display: isMenuOpen('sms') ? 'block' : 'none' }"
+              >
                 <li class="nav-item">
-                  <Link :href="route('sms.create')" class="nav-link" :class="{ 'active': $page.url.startsWith('/sms/send') }">
+                  <Link
+                    :href="route('sms.create')"
+                    class="nav-link"
+                    :class="{ active: $page.url.startsWith('/sms/send') }"
+                  >
                     <i class="far fa-paper-plane nav-icon"></i>
                     <p>Send SMS</p>
                   </Link>
                 </li>
                 <li class="nav-item">
-                  <Link :href="route('sms.index')" class="nav-link" :class="{ 'active': $page.url === '/sms' || $page.url.startsWith('/sms?') }">
+                  <Link
+                    :href="route('sms.index')"
+                    class="nav-link"
+                    :class="{
+                      active:
+                        $page.url === '/sms' || $page.url.startsWith('/sms?'),
+                    }"
+                  >
                     <i class="far fa-list-alt nav-icon"></i>
                     <p>SMS Management</p>
                   </Link>
                 </li>
-                <li class="nav-item">
+                <!-- <li class="nav-item">
                   <Link :href="route('sms.logs')" class="nav-link" :class="{ 'active': $page.url.startsWith('/sms/logs') }">
                     <i class="far fa-file-alt nav-icon"></i>
                     <p>SMS Logs</p>
                   </Link>
-                </li>
+                </li> -->
               </ul>
             </li>
-            <li class="nav-item" :class="{ 'menu-open': isMenuOpen('contacts') }">
-              <a href="#" class="nav-link" @click.prevent="toggleMenu('contacts')">
+            <li
+              class="nav-item"
+              :class="{ 'menu-open': isMenuOpen('contacts') }"
+            >
+              <a
+                href="#"
+                class="nav-link"
+                @click.prevent="toggleMenu('contacts')"
+              >
                 <i class="nav-icon fas fa-address-book"></i>
                 <p>
                   Contacts
                   <i class="fas fa-angle-left right"></i>
                 </p>
               </a>
-              <ul class="nav nav-treeview" :style="{ display: isMenuOpen('contacts') ? 'block' : 'none' }">
+              <ul
+                class="nav nav-treeview"
+                :style="{ display: isMenuOpen('contacts') ? 'block' : 'none' }"
+              >
                 <li class="nav-item">
-                  <Link :href="route('contacts.index')" class="nav-link" :class="{ 'active': $page.url === '/contacts' || $page.url.startsWith('/contacts?') }">
+                  <Link
+                    :href="route('contacts.index')"
+                    class="nav-link"
+                    :class="{
+                      active:
+                        $page.url === '/contacts' ||
+                        $page.url.startsWith('/contacts?'),
+                    }"
+                  >
                     <i class="far fa-list-alt nav-icon"></i>
                     <p>View Contacts</p>
                   </Link>
                 </li>
                 <li class="nav-item">
-                  <Link :href="route('contacts.create')" class="nav-link" :class="{ 'active': $page.url.startsWith('/contacts/create') }">
+                  <Link
+                    :href="route('contacts.create')"
+                    class="nav-link"
+                    :class="{
+                      active: $page.url.startsWith('/contacts/create'),
+                    }"
+                  >
                     <i class="fas fa-plus nav-icon"></i>
                     <p>Create Contact</p>
                   </Link>
@@ -170,7 +279,10 @@
 
     <!-- Main Footer -->
     <footer class="main-footer">
-      <strong>Copyright &copy; {{ new Date().getFullYear() }} <a href="#">Azam TV Bulk SMS</a>.</strong>
+      <strong
+        >Copyright &copy; {{ new Date().getFullYear() }}
+        <a href="#">Azam TV Bulk SMS</a>.</strong
+      >
       All rights reserved.
       <div class="float-right d-none d-sm-inline-block">
         <b>Version</b> 1.0.0
@@ -180,8 +292,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, onBeforeUnmount } from 'vue';
-import { router, usePage, Link } from '@inertiajs/vue3';
+import { ref, onMounted, computed, onBeforeUnmount } from "vue";
+import { router, usePage, Link } from "@inertiajs/vue3";
+import LoadingBar from "@/Components/LoadingBar.vue";
 
 const props = defineProps({
   title: {
@@ -194,11 +307,11 @@ const props = defineProps({
 const sidebarCollapsed = ref(false);
 const sidebarOpen = ref(false); // For mobile view
 const isMobile = ref(window.innerWidth < 992);
-const activeMenuItem = ref('');
+const activeMenuItem = ref("");
 const openMenus = ref([]); // All menus collapsed by default
 const userDropdownOpen = ref(false);
 const sidebarUserPanelOpen = ref(false);
-const darkMode = ref(localStorage.getItem('darkMode') === 'true');
+const darkMode = ref(localStorage.getItem("darkMode") === "true");
 
 // Get the authenticated user from Laravel
 const user = computed(() => usePage().props.auth.user);
@@ -217,7 +330,7 @@ function toggleSidebar() {
 // Toggle menu item expansion
 function toggleMenu(menuName) {
   if (openMenus.value.includes(menuName)) {
-    openMenus.value = openMenus.value.filter(name => name !== menuName);
+    openMenus.value = openMenus.value.filter((name) => name !== menuName);
   } else {
     openMenus.value.push(menuName);
   }
@@ -251,45 +364,48 @@ function toggleSidebarUserPanel() {
 
 // Logout function
 function logout() {
-  router.post(route('logout'));
+  router.post(route("logout"));
 }
 
 // Set active menu item based on current route
 function setActiveMenuItem() {
   const currentUrl = window.location.pathname;
   activeMenuItem.value = currentUrl;
-  
+
   // Automatically expand parent menus if they contain the active item
-  if (currentUrl.includes('/sms') && !openMenus.value.includes('sms')) {
-    openMenus.value.push('sms');
+  if (currentUrl.includes("/sms") && !openMenus.value.includes("sms")) {
+    openMenus.value.push("sms");
   }
-  
-  if (currentUrl.includes('/contacts') && !openMenus.value.includes('contacts')) {
-    openMenus.value.push('contacts');
+
+  if (
+    currentUrl.includes("/contacts") &&
+    !openMenus.value.includes("contacts")
+  ) {
+    openMenus.value.push("contacts");
   }
 }
 
 // Toggle dark mode
 function toggleDarkMode() {
   darkMode.value = !darkMode.value;
-  localStorage.setItem('darkMode', darkMode.value.toString());
+  localStorage.setItem("darkMode", darkMode.value.toString());
   applyTheme();
 }
 
 // Apply theme function
 function applyTheme() {
   // Toggle dark mode class on body
-  document.body.classList.toggle('dark-mode', darkMode.value);
-  
+  document.body.classList.toggle("dark-mode", darkMode.value);
+
   // Update navbar classes based on theme
-  const navbar = document.querySelector('.main-header');
+  const navbar = document.querySelector(".main-header");
   if (navbar) {
     if (darkMode.value) {
-      navbar.classList.add('navbar-dark');
-      navbar.classList.remove('navbar-light', 'navbar-white');
+      navbar.classList.add("navbar-dark");
+      navbar.classList.remove("navbar-light", "navbar-white");
     } else {
-      navbar.classList.remove('navbar-dark');
-      navbar.classList.add('navbar-light', 'navbar-white');
+      navbar.classList.remove("navbar-dark");
+      navbar.classList.add("navbar-light", "navbar-white");
     }
   }
 }
@@ -297,16 +413,25 @@ function applyTheme() {
 // Handle clicks outside dropdowns to close them
 function handleClickOutside(e) {
   // Close user dropdown if clicking outside
-  const userDropdownToggle = document.getElementById('userDropdown');
-  if (userDropdownOpen.value && userDropdownToggle && !userDropdownToggle.contains(e.target)) {
+  const userDropdownToggle = document.getElementById("userDropdown");
+  if (
+    userDropdownOpen.value &&
+    userDropdownToggle &&
+    !userDropdownToggle.contains(e.target)
+  ) {
     userDropdownOpen.value = false;
   }
-  
+
   // Close sidebar user panel if clicking outside
-  const sidebarUserPanel = document.getElementById('userOptions');
-  const sidebarUserToggle = document.querySelector('.sidebar .dropdown-toggle');
-  if (sidebarUserPanelOpen.value && sidebarUserPanel && sidebarUserToggle && 
-      !sidebarUserPanel.contains(e.target) && !sidebarUserToggle.contains(e.target)) {
+  const sidebarUserPanel = document.getElementById("userOptions");
+  const sidebarUserToggle = document.querySelector(".sidebar .dropdown-toggle");
+  if (
+    sidebarUserPanelOpen.value &&
+    sidebarUserPanel &&
+    sidebarUserToggle &&
+    !sidebarUserPanel.contains(e.target) &&
+    !sidebarUserToggle.contains(e.target)
+  ) {
     sidebarUserPanelOpen.value = false;
   }
 }
@@ -324,34 +449,38 @@ function handleResize() {
 onMounted(() => {
   // Set initial active menu item
   setActiveMenuItem();
-  
+
   // Apply theme based on user preference
   applyTheme();
-  
+
   // Add click outside listener for dropdowns
-  document.addEventListener('click', handleClickOutside);
-  
+  document.addEventListener("click", handleClickOutside);
+
   // Add resize event listener for responsive behavior
-  window.addEventListener('resize', handleResize);
-  
-  // Listen for Inertia navigation events to update active menu
-  router.on('success', () => {
-    // Update active menu item and expand appropriate parent menu
-    setActiveMenuItem();
-  });
-  
+  window.addEventListener("resize", handleResize);
+
   // Set initial state based on current URL
   setActiveMenuItem();
+
+  // Listen for Inertia navigation events to update active menu
+  // In newer versions of Inertia, router.on returns a function to remove the listener
+  const removeSuccessListener = router.on("success", () => {
+    setActiveMenuItem();
+  });
+
+  // Store the event removal function for cleanup
+  window.inertiaEventCleanup = removeSuccessListener;
 });
 
 // Clean up event listeners when component is destroyed
 onBeforeUnmount(() => {
-  document.removeEventListener('click', handleClickOutside);
-  window.removeEventListener('resize', handleResize);
-  
-  // Clean up Inertia navigation event listener
-  if (router.off) {
-    router.off('finish');
+  document.removeEventListener("click", handleClickOutside);
+  window.removeEventListener("resize", handleResize);
+
+  // Clean up Inertia event listener using the function returned by router.on
+  if (typeof window.inertiaEventCleanup === "function") {
+    window.inertiaEventCleanup();
+    window.inertiaEventCleanup = null;
   }
 });
 </script>
@@ -376,7 +505,7 @@ onBeforeUnmount(() => {
 }
 
 /* Fix AdminLTE navigation with Vue */
-.nav-sidebar .nav-item .nav-link .right, 
+.nav-sidebar .nav-item .nav-link .right,
 .nav-sidebar .nav-item .nav-link p .fa-angle-left.right,
 .nav-sidebar .nav-item .nav-link p > i.right,
 .nav-treeview .nav-item .nav-link p > i.right {
@@ -561,7 +690,13 @@ body.dark-mode .dropdown-divider {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 </style>

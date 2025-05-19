@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\User;
 use App\Models\Queue;
 use App\Models\TextStatus;
+use App\Models\ContactList;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -79,4 +80,12 @@ class Text extends Model
     {
         return $this->hasMany(Queue::class);
     }
+
+    /**
+     * Get the contact list associated with this text.
+     */
+    // public function contactList()
+    // {
+    //     return $this->belongsTo(ContactList::class, 'contact_list_id');
+    // }
 }

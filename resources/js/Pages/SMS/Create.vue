@@ -462,7 +462,8 @@ const form = useForm({
   schedule_date: null,
   csv_file: null,
   csv_file_path: '',
-  csv_columns: []
+  csv_columns: [],
+  contacts_count: 0 // Add contacts_count field to store the number of recipients
 });
 
 // Additional reactive state
@@ -1212,6 +1213,16 @@ const closePreviewModal = () => {
 
 // Confirm send from preview modal
 const confirmSend = () => {
+  // Update form with contact count from preview data
+  if (preview.value && preview.value.totalContacts) {
+    form.contacts_count = preview.value.totalContacts;
+  } else if (preview.value && preview.value.contacts_count) {
+    form.contacts_count = preview.value.contacts_count;
+  }
+  
+  // Log the contacts count for debugging
+  console.log('Contacts count to be stored:', form.contacts_count);
+  
   // Close the modal first
   closePreviewModal();
   

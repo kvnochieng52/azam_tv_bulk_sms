@@ -45,6 +45,8 @@ Route::middleware('auth')->group(function () {
         
         // SMS Management
         Route::get('/', [\App\Http\Controllers\TextController::class, 'index'])->name('sms.index');
+        Route::get('/export/csv', [\App\Http\Controllers\TextController::class, 'exportCsv'])->name('sms.export.csv');
+        Route::get('/download-csv/{filename}', [\App\Http\Controllers\TextController::class, 'downloadCsv'])->name('sms.download.csv');
         Route::get('/{text}', [\App\Http\Controllers\TextController::class, 'show'])->name('sms.show');
         Route::get('/{text}/edit', [\App\Http\Controllers\TextController::class, 'edit'])->name('sms.edit');
         Route::put('/{text}', [\App\Http\Controllers\TextController::class, 'update'])->name('sms.update');

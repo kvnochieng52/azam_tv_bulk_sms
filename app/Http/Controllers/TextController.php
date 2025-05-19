@@ -14,24 +14,132 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Models\TextStatus;
 use App\Models\Queue;
+use League\Csv\Writer;
 
 class TextController extends Controller
 {
     /**
+     * Export SMS data to CSV
+     */
+    public function exportCsv(Request $request)
+    {
+        $search = $request->input('search', '');
+
+        $query = Text::with([
+            'status:id,text_status_name,color_code',
+            'creator:id,name,email',
+            'updater:id,name,email',
+        ]);
+
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('text_title', 'like', "%{$search}%")
+                    ->orWhereHas('status', function ($sq) use ($search) {
+                        $sq->where('text_status_name', 'like', "%{$search}%");
+                    })
+                    ->orWhereHas('creator', function ($sq) use ($search) {
+                        $sq->where('name', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        $texts = $query->orderBy('created_at', 'desc')->get();
+
+        // Create CSV
+        $csv = Writer::createFromString('');
+
+        // Add CSV headers
+        $csv->insertOne([
+            'Title',
+            'Message Content',
+            'Status',
+            'Contact Type',
+            'Contacts Count',
+            'Created By',
+            'Created At',
+            'Updated By',
+            'Updated At',
+            'Scheduled',
+            'Schedule Date',
+            'Sender ID',
+            'Priority',
+            'Send Speed'
+        ]);
+
+        // Add data rows
+        foreach ($texts as $text) {
+            // Determine contact type
+            $contactType = 'Unknown';
+            if ($text->contact_type === 'manual') {
+                $contactType = 'Manual Entry';
+            } elseif ($text->contact_type === 'csv') {
+                $contactType = 'CSV Upload';
+            } elseif ($text->contact_type === 'list') {
+                $contactType = 'Contact List';
+            }
+
+            $csv->insertOne([
+                $text->text_title,
+                $text->message,
+                $text->status ? $text->status->text_status_name : 'Unknown',
+                $contactType,
+                $text->contacts_count ?? 0,
+                $text->creator ? $text->creator->name : 'Unknown',
+                $text->created_at ? $text->created_at->format('Y-m-d H:i:s') : '',
+                $text->updater ? $text->updater->name : 'N/A',
+                $text->updated_at ? $text->updated_at->format('Y-m-d H:i:s') : '',
+                $text->scheduled ? 'Yes' : 'No',
+                $text->scheduled && $text->schedule_date ? $text->schedule_date : '',
+                $text->sender_id ?? 'Default',
+                $text->priority ?? 'Normal',
+                $text->send_speed ?? 'Normal'
+            ]);
+        }
+
+        // Set response headers
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="sms-records-' . date('Y-m-d') . '.csv"',
+        ];
+
+        // Return the CSV as a download
+        return response($csv->toString(), 200, $headers);
+    }
+    /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-
-        sleep(5);
-        $texts = Text::with([
+        $search = $request->input('search', '');
+        $query = Text::with([
             'status:id,text_status_name,color_code', // Only load needed fields
             'creator:id,name,email',                // Only load needed fields
-            'updater:id,name,email'                 // Only load needed fields
-        ])->orderBy('created_at', 'desc')->paginate(10);
+            'updater:id,name,email',                // Only load needed fields
+            // Additional fields for contact viewing
+            // 'contactList:id,name'                   // For contact list information
+        ])
+            ->select('texts.*') // Ensure we select all text fields including contact_type, recipient_contacts, contact_list_id and csv_file_path
+            ->orderBy('created_at', 'desc');
+
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('text_title', 'like', "%{$search}%")
+                    ->orWhereHas('status', function ($sq) use ($search) {
+                        $sq->where('text_status_name', 'like', "%{$search}%");
+                    })
+                    ->orWhereHas('creator', function ($sq) use ($search) {
+                        $sq->where('name', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        $texts = $query->paginate(10)->withQueryString();
+        // dd($texts->toArray());
+
 
         return Inertia::render('SMS/Index', [
-            'texts' => $texts
+            'texts' => $texts,
+            'filters' => ['search' => $search]
         ]);
     }
 
@@ -97,7 +205,7 @@ class TextController extends Controller
                     // Use existing uploaded file
                     $csvFilePath = $request->csv_file_path;
                     $filename = basename($csvFilePath);
-                    $fullPath = Storage::disk('public')->path($csvFilePath);
+                    $fullPath = storage_path('app/public/' . $csvFilePath);
 
                     // Read the CSV file
                     $csvData = array_map('str_getcsv', file($fullPath));
@@ -329,14 +437,67 @@ class TextController extends Controller
             case 'csv':
                 $text->csv_file_path = $request->csv_file_path;
                 $text->csv_file_name = basename($request->csv_file_path);
-                $text->csv_file_columns = json_encode($request->csv_columns);
+                $text->csv_file_columns = $request->csv_file_columns;
                 $text->csv_phone_column = $request->csv_phone_column;
 
                 // Count contacts from CSV
                 if ($text->csv_file_path) {
-                    // Implementation would be similar to the preview method
-                    // to count the contacts in the CSV file
-                    $text->contacts_count = count(json_decode($request->contacts, true) ?? []);
+                    // Use the contacts_count from preview if available
+                    if ($request->has('contacts_count') && is_numeric($request->contacts_count)) {
+                        $text->contacts_count = $request->contacts_count;
+                    } else {
+                        // If not available, count them again like in the preview method
+                        $csvFilePath = $text->csv_file_path;
+                        $fullPath = storage_path('app/public/' . $csvFilePath);
+                        
+                        if (file_exists($fullPath)) {
+                            // Read the CSV file
+                            $csvData = array_map('str_getcsv', file($fullPath));
+                            
+                            // Get header row
+                            $headerRow = array_shift($csvData);
+                            $columnNames = array_map('trim', $headerRow);
+                            
+                            // Create lowercase version for case-insensitive matching
+                            $headerMap = array_map('strtolower', $columnNames);
+                            
+                            // Find phone/mobile column for contact counting
+                            $phoneColumnIndex = array_search('phone', $headerMap);
+                            if ($phoneColumnIndex === false) {
+                                $phoneColumnIndex = array_search('mobile', $headerMap);
+                            }
+                            if ($phoneColumnIndex === false) {
+                                $phoneColumnIndex = array_search('telephone', $headerMap);
+                            }
+                            if ($phoneColumnIndex === false) {
+                                $phoneColumnIndex = array_search('contact', $headerMap);
+                            }
+                            
+                            // Extract contacts from first column if no phone column found
+                            if ($phoneColumnIndex === false && !empty($csvData)) {
+                                $phoneColumnIndex = 0;
+                            }
+                            
+                            // Extract contacts from the phone column
+                            $contacts = [];
+                            if ($phoneColumnIndex !== false) {
+                                foreach ($csvData as $row) {
+                                    if (isset($row[$phoneColumnIndex]) && !empty($row[$phoneColumnIndex])) {
+                                        $contacts[] = $row[$phoneColumnIndex];
+                                    }
+                                }
+                            }
+                            
+                            $text->contacts_count = count($contacts);
+                            
+                            // Log for debugging
+                            Log::info('CSV Contacts counted during store: ' . $text->contacts_count);
+                        } else {
+                            // Log error if file not found
+                            Log::error('CSV file not found at: ' . $fullPath);
+                            $text->contacts_count = 0;
+                        }
+                    }
                 }
                 break;
 
@@ -401,6 +562,27 @@ class TextController extends Controller
         ]);
     }
 
+    /**
+     * Download the CSV file for an SMS
+     */
+    public function downloadCsv(Request $request, $filename)
+    {
+        // Security check to prevent directory traversal
+        $filename = basename($filename);
+        $csvPath = 'csv_uploads/' . $filename;
+        
+        // Check if file exists
+        if (!Storage::disk('public')->exists($csvPath)) {
+            return response()->json(['error' => 'File not found'], 404);
+        }
+        
+        // Get full path to the file
+        $fullPath = storage_path('app/public/' . $csvPath);
+        
+        // Return the file as a download
+        return response()->download($fullPath, $filename);
+    }
+    
     /**
      * Display SMS logs
      */

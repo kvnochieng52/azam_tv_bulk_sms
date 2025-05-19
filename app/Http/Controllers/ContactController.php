@@ -7,6 +7,7 @@ use App\Models\ContactList;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
 class ContactController extends Controller
@@ -14,14 +15,26 @@ class ContactController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $contacts = Contact::withCount('contactLists')
-            ->orderBy('id', 'desc')
-            ->paginate(10);
+        $search = $request->input('search', '');
+        
+        $query = Contact::withCount('contactLists');
+        
+        // Apply search filter if search term is provided
+        if ($search) {
+            $query->where('title', 'like', "%{$search}%");
+        }
+        
+        $contacts = $query->orderBy('id', 'desc')
+            ->paginate(10)
+            ->withQueryString();
 
         return Inertia::render('Contacts/Index', [
-            'contacts' => $contacts
+            'contacts' => $contacts,
+            'filters' => [
+                'search' => $search,
+            ],
         ]);
     }
 
@@ -131,30 +144,77 @@ class ContactController extends Controller
     }
     
     /**
-     * Get contacts data for select2
+     * Get contacts data based on contact IDs
+     * Simple approach for contact groups with their counts
      */
     public function getContacts(Request $request)
     {
-        $contactIds = $request->contact_ids;
-
-        // Ensure $contactIds is an array
+        // Get contact_ids parameter (could be in request body or query string)
+        $contactIds = $request->input('contact_ids', $request->query('contact_ids'));
+        
+        // Handle various formats of the parameter
         if (is_string($contactIds)) {
-            $contactIds = json_decode($contactIds, true);
+            // Try to decode JSON string
+            try {
+                $contactIds = json_decode($contactIds, true);
+            } catch (\Exception $e) {
+                // If JSON decode fails, try comma-separated format
+                $contactIds = array_map('trim', explode(',', $contactIds));
+            }
         }
-
+        
+        // Ensure we have valid contact IDs
         if (!$contactIds || !is_array($contactIds) || empty($contactIds)) {
-            return response()->json(['success' => false, 'message' => 'No contacts found.']);
+            return response()->json([
+                'success' => false, 
+                'message' => 'No valid contact IDs provided.'
+            ]);
         }
-
-        $contacts = Contact::whereIn('contacts.id', $contactIds)
-            ->leftJoin('contact_lists', 'contacts.id', '=', 'contact_lists.contact_id')
-            ->select('contacts.id', 'contacts.title', DB::raw('COUNT(contact_lists.id) as contact_list_count'))
-            ->groupBy('contacts.id', 'contacts.title')
+        
+        // Log for debugging
+        Log::info('Getting contacts for IDs: ' . json_encode($contactIds));
+        
+        // Step 1: Get basic contact group information
+        $contacts = Contact::whereIn('id', $contactIds)
+            ->where('is_active', 1)
+            ->select('id', 'title')
             ->get();
+        
+        // Step 2: For each contact group, get the count of contacts
+        $contactGroups = [];
+        
+        foreach ($contacts as $contact) {
+            // Count contact lists entries for this contact group
+            $contactListsCount = DB::table('contact_lists')
+                ->where('contact_id', $contact->id)
+                ->where('is_active', 1)
+                ->count();
+            
+            // Get contact lists for details
+            $contactLists = DB::table('contact_lists')
+                ->where('contact_id', $contact->id)
+                ->where('is_active', 1)
+                ->select('id', 'name', 'telephone')
+                ->get();
+            
+            // Add to results array
+            $contactGroups[] = [
+                'id' => $contact->id,
+                'full_name' => $contact->title,
+                'contacts_count' => $contactListsCount,
+                'lists' => $contactLists->map(function($list) {
+                    return [
+                        'id' => $list->id,
+                        'name' => $list->name,
+                        'telephone' => $list->telephone
+                    ];
+                })
+            ];
+        }
 
         return response()->json([
             'success' => true,
-            'contacts' => $contacts
+            'contacts' => $contactGroups
         ]);
     }
 }
