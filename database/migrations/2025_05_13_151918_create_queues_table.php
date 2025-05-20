@@ -16,7 +16,8 @@ return new class extends Migration
             $table->bigInteger('text_id')->nullable();
             $table->text('message')->nullable();
             $table->integer('status')->nullable();
-            $table->text('reason')->nullable();
+            $table->string('recipient')->nullable();
+            $table->text('response')->nullable();
             $table->bigInteger('created_by')->nullable();
             $table->bigInteger('updated_by')->nullable();
             $table->timestamps();

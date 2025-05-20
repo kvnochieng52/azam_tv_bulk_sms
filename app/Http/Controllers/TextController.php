@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Log;
 use App\Models\TextStatus;
 use App\Models\Queue;
 use League\Csv\Writer;
+use App\Jobs\SendSmsJob;
 
 class TextController extends Controller
 {
@@ -449,18 +450,18 @@ class TextController extends Controller
                         // If not available, count them again like in the preview method
                         $csvFilePath = $text->csv_file_path;
                         $fullPath = storage_path('app/public/' . $csvFilePath);
-                        
+
                         if (file_exists($fullPath)) {
                             // Read the CSV file
                             $csvData = array_map('str_getcsv', file($fullPath));
-                            
+
                             // Get header row
                             $headerRow = array_shift($csvData);
                             $columnNames = array_map('trim', $headerRow);
-                            
+
                             // Create lowercase version for case-insensitive matching
                             $headerMap = array_map('strtolower', $columnNames);
-                            
+
                             // Find phone/mobile column for contact counting
                             $phoneColumnIndex = array_search('phone', $headerMap);
                             if ($phoneColumnIndex === false) {
@@ -472,12 +473,12 @@ class TextController extends Controller
                             if ($phoneColumnIndex === false) {
                                 $phoneColumnIndex = array_search('contact', $headerMap);
                             }
-                            
+
                             // Extract contacts from first column if no phone column found
                             if ($phoneColumnIndex === false && !empty($csvData)) {
                                 $phoneColumnIndex = 0;
                             }
-                            
+
                             // Extract contacts from the phone column
                             $contacts = [];
                             if ($phoneColumnIndex !== false) {
@@ -487,9 +488,9 @@ class TextController extends Controller
                                     }
                                 }
                             }
-                            
+
                             $text->contacts_count = count($contacts);
-                            
+
                             // Log for debugging
                             Log::info('CSV Contacts counted during store: ' . $text->contacts_count);
                         } else {
@@ -527,8 +528,8 @@ class TextController extends Controller
 
         // Process the text message based on scheduled status
         if (!$text->scheduled) {
-            // Queue messages for immediate sending
-            // $this->queueMessages($text);
+            // Dispatch job with 10 second delay
+            \App\Jobs\SendSmsJob::dispatch($text)->delay(now()->addSeconds(3));
         }
 
         return redirect()->route('sms.index')->with('success', 'SMS created successfully and ' . ($text->scheduled ? 'scheduled for later.' : 'queued for sending.'));
@@ -570,19 +571,19 @@ class TextController extends Controller
         // Security check to prevent directory traversal
         $filename = basename($filename);
         $csvPath = 'csv_uploads/' . $filename;
-        
+
         // Check if file exists
         if (!Storage::disk('public')->exists($csvPath)) {
             return response()->json(['error' => 'File not found'], 404);
         }
-        
+
         // Get full path to the file
         $fullPath = storage_path('app/public/' . $csvPath);
-        
+
         // Return the file as a download
         return response()->download($fullPath, $filename);
     }
-    
+
     /**
      * Display SMS logs
      */

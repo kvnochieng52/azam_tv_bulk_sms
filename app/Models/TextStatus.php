@@ -9,11 +9,13 @@ class TextStatus extends Model
 {
     use HasFactory;
     const PROCESSING = 1;
-    const QUEUED = 2;
+    const SENDING = 2;
     const SENT = 3;
     const FAILED = 4;
     const CANCELLED = 5;
     const SCHEDULED = 6;
+    const ERROR = 7;
+    const PARTIAL = 8;
 
     /**
      * The attributes that are mass assignable.

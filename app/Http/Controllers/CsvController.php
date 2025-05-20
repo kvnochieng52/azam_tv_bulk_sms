@@ -32,43 +32,43 @@ class CsvController extends Controller
         try {
             // Process the CSV file
             $file = $request->file('csv_file');
-            
+
             // Generate a unique filename
             $fileName = time() . '_' . Str::slug(pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME)) . '.csv';
-            
+
             // Store the file in a temporary location
             $path = $file->storeAs('csv_uploads', $fileName, 'public');
             $fullPath = storage_path('app/public/' . $path);
-            
+
             // Read CSV header row to get column names
             $handle = fopen($fullPath, 'r');
             $headerRow = fgetcsv($handle);
             fclose($handle);
-            
+
             if (!$headerRow) {
                 return response()->json([
                     'status' => 'error',
                     'message' => 'The CSV file is empty or has an invalid format.',
                 ], 422);
             }
-            
+
             // Convert header row to lowercase for case-insensitive comparison
             $headers = array_map('strtolower', $headerRow);
-            
+
             // Check if any of the required columns exist
-            $requiredColumns = ['phone', 'mobile', 'telephone', 'contact'];
+            $requiredColumns = ['phone', 'mobile', 'telephone', 'contact', 'contacts', 'phone number', 'mobile number'];
             $foundColumns = array_intersect($requiredColumns, $headers);
-            
+
             if (empty($foundColumns)) {
                 // No required columns found, delete the file and return error
                 Storage::disk('public')->delete($path);
-                
+
                 return response()->json([
                     'status' => 'error',
                     'message' => 'The CSV file must contain at least one of these columns: phone, mobile, telephone, or contact.',
                 ], 422);
             }
-            
+
             // Success - return file info and columns
             return response()->json([
                 'status' => 'success',
@@ -78,7 +78,6 @@ class CsvController extends Controller
                 'columns_debug' => $headerRow, // For debugging
                 'contact_column' => reset($foundColumns), // Get the first matching column
             ]);
-            
         } catch (\Exception $e) {
             // Handle any errors
             return response()->json([

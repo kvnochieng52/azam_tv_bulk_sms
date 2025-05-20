@@ -75,11 +75,11 @@
                       <td>
                         <div class="d-flex align-items-center">
                           <button
-                            class="btn btn-sm btn-info ml-2"
+                            class="btn btn-sm btn-outline-info ml-2"
                             @click.prevent="viewContacts(text)"
                             title="View Contacts"
                           >
-                            <i class="fas fa-eye"></i>
+                            <i class="fas fa-eye"></i> view
                           </button>
                         </div>
                       </td>
@@ -89,21 +89,21 @@
                         <div class="btn-group">
                           <a
                             :href="route('sms.show', text.id)"
-                            class="btn btn-info btn-sm"
+                            class="btn btn-outline-info btn-sm"
                           >
                             <i class="fas fa-eye"></i>
                           </a>
                           <a
                             v-if="text.status_id <= 1"
                             :href="route('sms.edit', text.id)"
-                            class="btn btn-primary btn-sm"
+                            class="btn btn-outline-primary btn-sm me-1"
                           >
                             <i class="fas fa-edit"></i>
                           </a>
                           <button
                             v-if="text.status_id <= 2"
                             @click="confirmDelete(text)"
-                            class="btn btn-danger btn-sm"
+                            class="btn btn-outline-danger btn-sm"
                           >
                             <i class="fas fa-trash"></i>
                           </button>
@@ -227,7 +227,9 @@
                 </p>
                 <a
                   v-if="selectedText?.csv_file_path"
-                  :href="route('sms.download.csv', [selectedText.csv_file_name])"
+                  :href="
+                    route('sms.download.csv', [selectedText.csv_file_name])
+                  "
                   class="btn btn-primary"
                   download
                 >
