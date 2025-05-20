@@ -59,17 +59,26 @@
                     <tr v-for="text in filteredTexts" :key="text.id">
                       <td>
                         <b
-                          ><Link :href="route('sms.show', text.id)">{{
-                            text.text_title
-                          }}</Link></b
+                          ><Link :href="route('sms.show', text.id)">{{ text.text_title }}</Link></b
                         >
                       </td>
-                      <td>
+                      <td class="d-flex align-items-center">
+                        <div class="me-2 mr-2">
+                          <ProgressDonut 
+                            :percentage="progressData[text.id]?.percentage || 0" 
+                            :processed="progressData[text.id]?.processed || 0"
+                            :total="progressData[text.id]?.total || text.contacts_count || 0"
+                            :size="36" 
+                            :color="getProgressColor(text.status_id, progressData[text.id]?.percentage || 0)" 
+                            :show-percentage="true"
+                            :show-count="false"
+                          />
+                        </div>
                         <span
                           class="badge"
-                          :class="'bg-' + text.status?.color_code"
+                          :class="'bg-' + (progressData[text.id]?.color_code || text.status?.color_code)"
                         >
-                          {{ text.status?.text_status_name }}
+                          {{ progressData[text.id]?.status_name || text.status?.text_status_name }}
                         </span>
                       </td>
                       <td>
@@ -448,9 +457,10 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick } from "vue";
-import { router } from "@inertiajs/vue3";
+import { ref, computed, nextTick, onMounted, onUnmounted } from "vue";
 import axios from "axios";
+import ProgressDonut from '@/Components/ProgressDonut.vue';
+import { router } from "@inertiajs/vue3";
 import DashboardLayout from "@/Layouts/DashboardLayout.vue";
 import Pagination from "@/Components/Pagination.vue";
 import { Link } from "@inertiajs/vue3";
@@ -665,6 +675,86 @@ const viewContacts = async (text) => {
     loadingContacts.value = false;
   }
 };
+
+// Progress tracking
+const progressData = ref({});
+const progressInterval = ref(null);
+
+// Function to get active text IDs that need progress updates
+const getActiveTextIds = () => {
+  // Include all texts that are being processed or need progress tracking
+  // This includes pending (1), processing (2), sending (3), partial (4)
+  return filteredTexts.value
+    .filter(text => {
+      // Include more status types to ensure we catch all that need updates
+      return text.status_id >= 1 && text.status_id <= 4 || text.status_id === 7; // Also include any custom statuses
+    })
+    .map(text => text.id);
+};
+
+// Function to fetch progress data from the server
+const fetchProgressData = async () => {
+  const activeIds = getActiveTextIds();
+  
+  // Debug logging
+  console.log('Active text IDs for progress updates:', activeIds);
+  
+  if (activeIds.length === 0) {
+    console.log('No active texts to fetch progress for');
+    return;
+  }
+  
+  try {
+    console.log('Fetching progress data from API...');
+    const response = await axios.get(route('sms.progress'), {
+      params: { text_ids: activeIds }
+    });
+    console.log('Progress data received:', response.data);
+    progressData.value = response.data;
+  } catch (error) {
+    console.error('Error fetching progress data:', error);
+  }
+};
+
+// Color selection based on status and progress
+const getProgressColor = (statusId, percentage) => {
+  // If processing is complete, use green
+  if (percentage === 100) return '#28a745'; // Complete - green
+  
+  // Different colors based on status
+  if (statusId === 6) return '#dc3545'; // Error - red
+  if (statusId === 5) return '#dc3545'; // Failed - red
+  if (statusId === 4) return '#ffc107'; // Partial - yellow
+  if (statusId === 3) return '#28a745'; // Sent - green
+  if (statusId === 2) return '#17a2b8'; // Processing - blue
+  
+  // For pending or scheduled, use gray
+  return '#6c757d';
+};
+
+// Setup progress polling when component mounts
+onMounted(() => {
+  console.log('Component mounted, setting up progress polling');
+  
+  // Fetch progress data immediately
+  fetchProgressData();
+  
+  // Setup interval to fetch progress data every second
+  // Using a shorter interval of 500ms for more responsive updates
+  progressInterval.value = setInterval(() => {
+    console.log('Progress poll triggered');
+    fetchProgressData();
+  }, 500);
+});
+
+// Cleanup interval when component unmounts
+onUnmounted(() => {
+  console.log('Component unmounting, cleaning up interval');
+  if (progressInterval.value) {
+    clearInterval(progressInterval.value);
+    progressInterval.value = null;
+  }
+});
 
 // Delete functionality
 const textToDelete = ref(null);

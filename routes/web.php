@@ -47,6 +47,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/', [\App\Http\Controllers\TextController::class, 'index'])->name('sms.index');
         Route::get('/export/csv', [\App\Http\Controllers\TextController::class, 'exportCsv'])->name('sms.export.csv');
         Route::get('/download-csv/{filename}', [\App\Http\Controllers\TextController::class, 'downloadCsv'])->name('sms.download.csv');
+        Route::get('/progress', [\App\Http\Controllers\TextController::class, 'getProgress'])->name('sms.progress');
         Route::get('/{text}', [\App\Http\Controllers\TextController::class, 'show'])->name('sms.show');
         Route::get('/{text}/edit', [\App\Http\Controllers\TextController::class, 'edit'])->name('sms.edit');
         Route::put('/{text}', [\App\Http\Controllers\TextController::class, 'update'])->name('sms.update');

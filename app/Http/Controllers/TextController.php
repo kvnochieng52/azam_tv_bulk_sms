@@ -529,7 +529,7 @@ class TextController extends Controller
         // Process the text message based on scheduled status
         if (!$text->scheduled) {
             // Dispatch job with 10 second delay
-            \App\Jobs\SendSmsJob::dispatch($text)->delay(now()->addSeconds(3));
+            \App\Jobs\SendSmsJob::dispatch($text)->delay(now()->addSeconds(15));
         }
 
         return redirect()->route('sms.index')->with('success', 'SMS created successfully and ' . ($text->scheduled ? 'scheduled for later.' : 'queued for sending.'));
@@ -594,6 +594,60 @@ class TextController extends Controller
         return Inertia::render('SMS/Logs', [
             'texts' => $texts
         ]);
+    }
+
+    /**
+     * Get the progress of SMS sending for a specific text or all texts
+     */
+    public function getProgress(Request $request)
+    {
+        $textIds = $request->input('text_ids', []);
+
+        // First get the progress counts
+        $countQuery = DB::table('texts')
+            ->select('texts.id', 'texts.contacts_count')
+            ->selectRaw('COUNT(queues.id) as processed_count')
+            ->leftJoin('queues', 'texts.id', '=', 'queues.text_id')
+            ->groupBy('texts.id', 'texts.contacts_count');
+
+        // If specific text IDs were provided, filter by them
+        if (!empty($textIds)) {
+            $countQuery->whereIn('texts.id', $textIds);
+        }
+        
+        $progressCounts = $countQuery->get();
+        
+        // Then get the current status information
+        $statusQuery = DB::table('texts')
+            ->select('texts.id', 'texts.status_id', 'text_statuses.text_status_name', 'text_statuses.color_code')
+            ->join('text_statuses', 'texts.status_id', '=', 'text_statuses.id');
+            
+        if (!empty($textIds)) {
+            $statusQuery->whereIn('texts.id', $textIds);
+        }
+        
+        $statuses = $statusQuery->get()->keyBy('id');
+        
+        // Combine progress and status information
+        $progress = $progressCounts->mapWithKeys(function ($item) use ($statuses) {
+            $totalCount = max(1, $item->contacts_count); // Avoid division by zero
+            $processedCount = $item->processed_count;
+            $percentage = min(100, round(($processedCount / $totalCount) * 100));
+            
+            // Get status information
+            $status = $statuses[$item->id] ?? null;
+            
+            return [$item->id => [
+                'processed' => $processedCount,
+                'total' => $totalCount,
+                'percentage' => $percentage,
+                'status_id' => $status ? $status->status_id : null,
+                'status_name' => $status ? $status->text_status_name : null,
+                'color_code' => $status ? $status->color_code : null
+            ]];
+        });
+
+        return response()->json($progress);
     }
 
     /**

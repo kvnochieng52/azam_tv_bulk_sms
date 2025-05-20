@@ -123,7 +123,7 @@ class SendSmsJob implements ShouldQueue
             foreach ($contactGroups as $group) {
                 // Process contact lists in chunks to avoid memory issues
                 $group->contactLists()
-                    ->where('is_active', 1)
+                    //->where('is_active', 1)
                     ->select('telephone')
                     ->chunk($batchSize, function ($phoneNumbers) use (&$contacts) {
                         foreach ($phoneNumbers as $record) {
@@ -138,13 +138,13 @@ class SendSmsJob implements ShouldQueue
             }
 
             // Update contacts_count
-            $this->text->contacts_count = count($contacts);
+            //$this->text->contacts_count = count($contacts);
             $this->text->save();
 
             return $contacts;
         } catch (\Exception $e) {
             Log::error("Error processing contact lists: " . $e->getMessage());
-            
+
             // Update text status to error
             $this->text->status_id = TextStatus::ERROR;
             $this->text->save();
@@ -204,7 +204,7 @@ class SendSmsJob implements ShouldQueue
             Log::info("Total rows in CSV: {$totalRows}");
 
             // Update text with total count
-            $this->text->contacts_count = $totalRows;
+            //  $this->text->contacts_count = $totalRows;
             $this->text->save();
 
             // Now process in batches
@@ -229,11 +229,11 @@ class SendSmsJob implements ShouldQueue
                 if ($phoneColumnIndex === null) {
                     Log::error("No valid contact column found in the CSV.");
                     fclose($handle);
-                    
+
                     // Update text status to error
                     $this->text->status_id = TextStatus::ERROR;
                     $this->text->save();
-                    
+
                     return [];
                 }
 
@@ -258,7 +258,7 @@ class SendSmsJob implements ShouldQueue
                     // Validate and clean phone number
                     if (!empty($phone)) {
                         $cleanedPhone = $this->cleanPhoneNumber($phone);
-                        
+
                         // Only use numbers that are valid after cleaning
                         if (!empty($cleanedPhone)) {
                             $message = $this->replacePlaceholders($this->text->message, $contactData);
@@ -322,22 +322,22 @@ class SendSmsJob implements ShouldQueue
     {
         // Remove any non-digit characters (spaces, dashes, plus signs, etc.)
         $cleaned = preg_replace('/[^0-9]/', '', $phoneNumber);
-        
+
         // Skip empty numbers
         if (empty($cleaned)) {
             return '';
         }
-        
+
         // If already starts with 254, keep it as is
         if (strpos($cleaned, '254') === 0) {
             return $cleaned;
         }
-        
+
         // If starts with 0, remove it first
         if (strpos($cleaned, '0') === 0) {
             $cleaned = substr($cleaned, 1);
         }
-        
+
         // Add 254 prefix
         return '254' . $cleaned;
     }
@@ -412,9 +412,11 @@ class SendSmsJob implements ShouldQueue
                         Log::info("Batch {$batchIndex} - Sent to " . count($phones) . " recipients");
 
                         // Track successful sends
-                        if (isset($response['data']) &&
+                        if (
+                            isset($response['data']) &&
                             isset($response['data']['SMSMessageData']) &&
-                            isset($response['data']['SMSMessageData']['Recipients'])) {
+                            isset($response['data']['SMSMessageData']['Recipients'])
+                        ) {
 
                             $recipients = $response['data']['SMSMessageData']['Recipients'];
 
