@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Support\Facades\File;
+
 use App\Models\Text;
 use App\Models\Contact;
 use App\Models\ContactList;
@@ -116,10 +118,9 @@ class TextController extends Controller
             'status:id,text_status_name,color_code', // Only load needed fields
             'creator:id,name,email',                // Only load needed fields
             'updater:id,name,email',                // Only load needed fields
-            // Additional fields for contact viewing
-            // 'contactList:id,name'                   // For contact list information
         ])
-            ->select('texts.*') // Ensure we select all text fields including contact_type, recipient_contacts, contact_list_id and csv_file_path
+            ->select('texts.*') // Ensure we select all text fields
+            ->where('texts.status_id', '!=', TextStatus::SCHEDULED) // Exclude scheduled texts
             ->orderBy('created_at', 'desc');
 
         if ($search) {
@@ -135,8 +136,6 @@ class TextController extends Controller
         }
 
         $texts = $query->paginate(10)->withQueryString();
-        // dd($texts->toArray());
-
 
         return Inertia::render('SMS/Index', [
             'texts' => $texts,
@@ -528,11 +527,29 @@ class TextController extends Controller
 
         // Process the text message based on scheduled status
         if (!$text->scheduled) {
-            // Dispatch job with 10 second delay
-            \App\Jobs\SendSmsJob::dispatch($text)->delay(now()->addSeconds(15));
-        }
+            // Dispatch job with 5 second delay for immediate sending
+            \App\Jobs\SendSmsJob::dispatch($text)->delay(now()->addSeconds(5));
 
-        return redirect()->route('sms.index')->with('success', 'SMS created successfully and ' . ($text->scheduled ? 'scheduled for later.' : 'queued for sending.'));
+            // Redirect to SMS index for direct messages
+            return redirect()->route('sms.index')
+                ->with('success', 'SMS created successfully and queued for sending.');
+        } else {
+            // For scheduled SMS, schedule the job to run at the specified date and time
+            $scheduleDate = new \DateTime($text->schedule_date);
+            $delay = $scheduleDate->getTimestamp() - now()->timestamp;
+
+            // Only schedule if the date is in the future
+            if ($delay > 0) {
+                \App\Jobs\SendSmsJob::dispatch($text)->delay(now()->addSeconds($delay));
+            } else {
+                // If scheduled date is in the past, send immediately with a 5 second delay
+                \App\Jobs\SendSmsJob::dispatch($text)->delay(now()->addSeconds(5));
+            }
+
+            // Redirect to scheduled SMS page for scheduled messages
+            return redirect()->route('sms.scheduled')
+                ->with('success', 'SMS scheduled successfully for ' . $text->schedule_date . '.');
+        }
     }
 
     /**
@@ -558,8 +575,9 @@ class TextController extends Controller
      */
     public function show(Text $text)
     {
+        // Load the status and creator relationships
         return Inertia::render('SMS/Show', [
-            'text' => $text->load('status')
+            'text' => $text->load(['status', 'creator'])
         ]);
     }
 
@@ -597,6 +615,40 @@ class TextController extends Controller
     }
 
     /**
+     * Display scheduled SMS messages
+     */
+    public function scheduled(Request $request)
+    {
+        $search = $request->input('search', '');
+        $query = Text::with([
+            'status:id,text_status_name,color_code',
+            'creator:id,name,email',
+            'updater:id,name,email',
+        ])
+            ->where('status_id', TextStatus::SCHEDULED) // Only get scheduled texts
+            ->orderBy('created_at', 'desc'); // Order by schedule date
+
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('text_title', 'like', "%{$search}%")
+                    ->orWhereHas('status', function ($sq) use ($search) {
+                        $sq->where('text_status_name', 'like', "%{$search}%");
+                    })
+                    ->orWhereHas('creator', function ($sq) use ($search) {
+                        $sq->where('name', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        $texts = $query->paginate(10)->withQueryString();
+
+        return Inertia::render('SMS/Scheduled', [
+            'texts' => $texts,
+            'filters' => ['search' => $search]
+        ]);
+    }
+
+    /**
      * Get the progress of SMS sending for a specific text or all texts
      */
     public function getProgress(Request $request)
@@ -614,29 +666,29 @@ class TextController extends Controller
         if (!empty($textIds)) {
             $countQuery->whereIn('texts.id', $textIds);
         }
-        
+
         $progressCounts = $countQuery->get();
-        
+
         // Then get the current status information
         $statusQuery = DB::table('texts')
             ->select('texts.id', 'texts.status_id', 'text_statuses.text_status_name', 'text_statuses.color_code')
             ->join('text_statuses', 'texts.status_id', '=', 'text_statuses.id');
-            
+
         if (!empty($textIds)) {
             $statusQuery->whereIn('texts.id', $textIds);
         }
-        
+
         $statuses = $statusQuery->get()->keyBy('id');
-        
+
         // Combine progress and status information
         $progress = $progressCounts->mapWithKeys(function ($item) use ($statuses) {
             $totalCount = max(1, $item->contacts_count); // Avoid division by zero
             $processedCount = $item->processed_count;
             $percentage = min(100, round(($processedCount / $totalCount) * 100));
-            
+
             // Get status information
             $status = $statuses[$item->id] ?? null;
-            
+
             return [$item->id => [
                 'processed' => $processedCount,
                 'total' => $totalCount,
@@ -648,6 +700,212 @@ class TextController extends Controller
         });
 
         return response()->json($progress);
+    }
+
+    /**
+     * Get detailed SMS statistics from the queues table
+     */
+    public function getSmsStatistics(Request $request)
+    {
+        $textId = $request->input('text_id');
+
+        if (!$textId) {
+            return response()->json(['error' => 'Text ID is required'], 400);
+        }
+
+        // Get basic SMS information
+        $text = DB::table('texts')
+            ->select('id', 'contacts_count')
+            ->where('id', $textId)
+            ->first();
+
+        if (!$text) {
+            return response()->json(['error' => 'SMS not found'], 404);
+        }
+
+        // Count messages by status ID from texts table
+        $text = DB::table('texts')
+            ->select('id', 'contacts_count', 'status_id')
+            ->where('id', $textId)
+            ->first();
+
+        // Count processed messages from queues table
+        $processedCount = DB::table('queues')
+            ->where('text_id', $textId)
+            ->count();
+
+        // Define status codes
+        $PROCESSING = 2; // In Queue
+        $SENT = 3;       // Delivered/Sent
+        $FAILED = 4;     // Failed
+        $ERROR = 7;      // Error
+
+        // Determine counts based on text status and processed count
+        $total = $text->contacts_count;
+
+        if ($text->status_id == $SENT) {
+            // If status is SENT, all messages are delivered
+            $delivered = $total;
+            $queued = 0;
+            $failed = 0;
+        } else if ($text->status_id == $FAILED || $text->status_id == $ERROR) {
+            // If status is FAILED or ERROR, all are failed
+            $delivered = 0;
+            $queued = 0;
+            $failed = $total;
+        } else {
+            // For processing or other statuses, use processed count to estimate
+            $delivered = min($processedCount, $total);
+            $queued = max(0, $total - $processedCount);
+            $failed = 0; // We don't know failures without detailed queue status
+        }
+
+        // If status is specifically FAILED or ERROR, count as failed
+        if ($text->status_id == $FAILED || $text->status_id == $ERROR) {
+            $failed = $total;
+            $delivered = 0;
+        }
+
+        // If requested, include individual contact statuses
+        $contactStatuses = [];
+        if ($request->input('include_contacts', false)) {
+            $contactStatuses = DB::table('queues')
+                ->select('recipient', 'status')
+                ->where('text_id', $textId)
+                ->get()
+                ->keyBy('recipient')
+                ->toArray();
+        }
+
+        return response()->json([
+            'text_id' => $textId,
+            'total' => $text->contacts_count,
+            'delivered' => $delivered,
+            'queued' => $queued,
+            'failed' => $failed,
+            'contacts' => $contactStatuses
+        ]);
+    }
+
+    /**
+     * Export detailed SMS data for a specific text message
+     * Format: telephone|message|date/time|status
+     */
+    public function exportSmsDetail(Text $text)
+    {
+        // Status code constants for reference
+        $PROCESSING = 1;
+        $IN_QUEUE = 2;
+        $SENT = 3;
+        $FAILED = 4;
+        $ERROR = 7;
+
+        // Get SMS details
+        $smsData = [];
+
+        // Get creator information by joining with users table
+        $creator = DB::table('users')
+            ->select('name')
+            ->where('id', $text->created_by)
+            ->first();
+
+        // Add header information
+        $headerInfo = [
+            'SMS Title' => $text->text_title,
+            'Created By' => $creator ? $creator->name : 'System',
+            'Created At' => $text->created_at->format('Y-m-d H:i:s'),
+            'Status' => optional($text->status)->text_status_name ?? 'Unknown',
+            'Total Contacts' => $text->contacts_count,
+        ];
+
+        // Constants for queue status codes
+        $SENT = 3;      // SMS sent/delivered
+        $IN_QUEUE = 2;  // SMS in queue/processing
+        $FAILED = 4;    // SMS failed (part of undelivered)
+        $ERROR = 7;     // SMS error (part of undelivered)
+
+        // Get all queue records for this text with status information and creator information
+        $queueItems = DB::table('queues')
+            ->select('queues.*', 'text_statuses.text_status_name', 'users.name as created_by_name')
+            ->leftJoin('text_statuses', 'queues.status', '=', 'text_statuses.id')
+            ->leftJoin('users', 'queues.created_by', '=', 'users.id')
+            ->where('queues.text_id', $text->id)
+            ->get();
+
+        // Also get raw text_statuses for other status handling
+        $textStatuses = DB::table('text_statuses')->get()->keyBy('id');
+
+        // Only process entries that exist in the queues table
+        // Skip adding any entries for contacts not in the queue
+        foreach ($queueItems as $item) {
+            // Get the status name from the joined text_statuses table or fall back to a default
+            $statusName = $item->text_status_name ?? 'Unknown';
+
+            // Use the message from the queue item, not from the text
+            $message = $item->message ?? $text->message;
+
+            $smsData[] = [
+                'telephone' => $item->recipient,
+                'message' => $message,
+                'date/time' => date('Y-m-d H:i:s', strtotime($item->created_at)),
+                'status' => $statusName,
+                'created_by' => $item->created_by_name ?? 'System'
+            ];
+        }
+
+        // No longer adding entries for contacts not in the queue
+        // This ensures we only export actual entries from the queues table
+
+        // Generate CSV file
+        $csvFileName = "sms_detail_{$text->id}_" . date('Y-m-d_H-i-s') . ".csv";
+        $csvPath = storage_path('app/public/exports/' . $csvFileName);
+
+        // Ensure the directory exists
+        if (!File::exists(storage_path('app/public/exports'))) {
+            File::makeDirectory(storage_path('app/public/exports'), 0755, true);
+        }
+
+        // Create CSV file
+        $file = fopen($csvPath, 'w');
+
+        // Add header information as comments
+        foreach ($headerInfo as $key => $value) {
+            fputcsv($file, ["# {$key}: {$value}"]);
+        }
+
+        // Add a blank line
+        fputcsv($file, []);
+
+        // Add column headers
+        fputcsv($file, ['telephone', 'message', 'date/time', 'status', 'created_by']);
+
+        // Add data rows
+        foreach ($smsData as $row) {
+            fputcsv($file, [
+                $row['telephone'],
+                $row['message'],
+                $row['date/time'],
+                $row['status'],
+                $row['created_by']
+            ]);
+        }
+
+        fclose($file);
+
+        // Save export record if Export model exists
+        if (class_exists('\App\Models\Export')) {
+            \App\Models\Export::create([
+                'file_name' => $csvFileName,
+                'file_path' => 'exports/' . $csvFileName,
+                'exported_by' => auth()->id(),
+                'export_type' => 'sms_detail'
+            ]);
+        }
+
+        // Return the file as a download
+        return response()->download($csvPath, $csvFileName, [
+            'Content-Type' => 'text/csv',
+        ]);
     }
 
     /**
@@ -701,13 +959,54 @@ class TextController extends Controller
      */
     public function destroy(Text $text)
     {
-        // Only allow deleting texts that haven't been sent
-        if ($text->status_id > 2) {
-            return redirect()->back()->with('error', 'Cannot delete SMS that has already been sent.');
+        try {
+            // Store text information before deletion
+            $id = $text->id;
+            $wasScheduled = $text->scheduled;
+            $title = $text->text_title;
+
+            // Only allow deleting texts that haven't been sent
+            if ($text->status_id == TextStatus::SENT || $text->status_id == TextStatus::SENDING || $text->status_id == TextStatus::PROCESSING) {
+                return response()->json(['success' => false, 'message' => 'Cannot delete SMS that has already been sent.'], 422);
+            }
+
+            // Delete any related records in the queues table first
+            \DB::table('queues')->where('text_id', $id)->delete();
+
+            // Delete the text record
+            $deleted = $text->delete();
+
+            if (!$deleted) {
+                throw new \Exception('Failed to delete SMS record');
+            }
+
+            // For API requests
+            if (request()->expectsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => "SMS '{$title}' deleted successfully."
+                ]);
+            }
+
+            // For web requests
+            if ($wasScheduled) {
+                return redirect()->route('sms.scheduled')
+                    ->with('success', "Scheduled SMS '{$title}' deleted successfully.");
+            } else {
+                return redirect()->route('sms.index')
+                    ->with('success', "SMS '{$title}' deleted successfully.");
+            }
+        } catch (\Exception $e) {
+            // For API requests
+            if (request()->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Error deleting SMS: ' . $e->getMessage()
+                ], 500);
+            }
+
+            // For web requests
+            return redirect()->back()->with('error', 'Error deleting SMS: ' . $e->getMessage());
         }
-
-        $text->delete();
-
-        return redirect()->route('sms.index')->with('success', 'SMS deleted successfully.');
     }
 }

@@ -5,11 +5,12 @@
         <div class="card">
           <div class="card-header">
             <h3 class="card-title">
-              <i class="far fa-list-alt nav-icon"></i> &nbsp; SMS Messages
+              <i class="far fa-clock nav-icon"></i> &nbsp; Scheduled SMS
+              Messages
             </h3>
             <div class="card-tools">
               <a :href="route('sms.create')" class="btn btn-primary btn-sm">
-                <i class="fas fa-plus mr-1"></i> New SMS
+                <i class="fas fa-plus mr-1"></i> New Scheduled SMS
               </a>
             </div>
           </div>
@@ -24,7 +25,7 @@
                       <input
                         type="search"
                         class="form-control form-control-sm ms-2 ml-2"
-                        placeholder="Search SMS messages..."
+                        placeholder="Search scheduled messages..."
                         v-model="search"
                         @input="performSearch"
                       />
@@ -34,7 +35,12 @@
                 <div class="col-sm-12 col-md-6 text-right">
                   <div class="btn-group">
                     <a
-                      :href="route('sms.export.csv', { search: search })"
+                      :href="
+                        route('sms.export.csv', {
+                          search: search,
+                          scheduled: 1,
+                        })
+                      "
                       class="btn btn-success btn-sm"
                     >
                       <i class="fas fa-file-csv mr-1"></i> Export to CSV
@@ -44,11 +50,12 @@
               </div>
 
               <div class="table-responsive">
-                <table class="table table-bordered table-striped table-hover">
+                <table class="table table-bordered table-striped">
                   <thead>
                     <tr>
                       <th>Title</th>
                       <th>Status</th>
+                      <th>Schedule Date</th>
                       <th>Contacts</th>
                       <th>Created By</th>
                       <th>Created At</th>
@@ -64,39 +71,17 @@
                           }}</Link></b
                         >
                       </td>
-                      <td class="d-flex align-items-center">
-                        <div class="me-2 mr-2">
-                          <ProgressDonut
-                            :percentage="progressData[text.id]?.percentage || 0"
-                            :processed="progressData[text.id]?.processed || 0"
-                            :total="
-                              progressData[text.id]?.total ||
-                              text.contacts_count ||
-                              0
-                            "
-                            :size="36"
-                            :color="
-                              getProgressColor(
-                                text.status_id,
-                                progressData[text.id]?.percentage || 0
-                              )
-                            "
-                            :show-percentage="true"
-                            :show-count="false"
-                          />
-                        </div>
+                      <td>
                         <span
                           class="badge"
-                          :class="
-                            'bg-' +
-                            (progressData[text.id]?.color_code ||
-                              text.status?.color_code)
-                          "
+                          :class="'bg-' + text.status?.color_code"
                         >
-                          {{
-                            progressData[text.id]?.status_name ||
-                            text.status?.text_status_name
-                          }}
+                          {{ text.status?.text_status_name }}
+                        </span>
+                      </td>
+                      <td>
+                        <span class="badge bg-info p-2">
+                          {{ formatDate(text.schedule_date) }}
                         </span>
                       </td>
                       <td>
@@ -120,21 +105,26 @@
                           >
                             <i class="fas fa-eye"></i>
                           </a>
-                          <a
-                            v-if="text.status_id <= 1"
+                          <!-- <a
                             :href="route('sms.edit', text.id)"
-                            class="btn btn-outline-primary btn-sm me-1"
+                            class="btn btn-outline-warning btn-sm"
                           >
                             <i class="fas fa-edit"></i>
-                          </a>
+                          </a> -->
                           <button
-                            v-if="text.status_id <= 2"
                             @click="confirmDelete(text)"
                             class="btn btn-outline-danger btn-sm"
                           >
                             <i class="fas fa-trash"></i>
                           </button>
                         </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                  <tbody v-else>
+                    <tr>
+                      <td colspan="7" class="text-center">
+                        No scheduled SMS messages found.
                       </td>
                     </tr>
                   </tbody>
@@ -157,11 +147,11 @@
               </div>
 
               <!-- Show result count when filtering -->
-              <div class="row mt-3" v-if="isSearching && searchTerm">
+              <div class="row mt-3" v-if="search">
                 <div class="col-12">
                   <div class="dataTables_info">
                     Found {{ filteredTexts.length }} matching results for "{{
-                      searchTerm
+                      search
                     }}"
                   </div>
                 </div>
@@ -348,30 +338,41 @@
     </div>
 
     <!-- Delete Confirmation Modal -->
-    <div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
+    <div
+      class="modal fade"
+      :class="{ show: showDeleteModal }"
+      style="display: block"
+      v-if="showDeleteModal"
+    >
       <div class="modal-dialog">
         <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title">Confirm Delete</h5>
+          <div class="modal-header bg-danger text-white">
+            <h5 class="modal-title">
+              <i class="fas fa-exclamation-triangle mr-2"></i>
+              Confirm Delete
+            </h5>
             <button
               type="button"
-              class="btn-close"
-              data-bs-dismiss="modal"
+              class="close text-white"
               aria-label="Close"
-            ></button>
+              @click="showDeleteModal = false"
+            >
+              <span aria-hidden="true">&times;</span>
+            </button>
           </div>
           <div class="modal-body">
             <p>
-              Are you sure you want to delete the SMS
-              <strong>"{{ textToDelete?.text_title }}"</strong>?
+              Are you sure you want to delete the scheduled SMS
+              <strong>{{ textToDelete?.text_title }}</strong
+              >?
             </p>
-            <p class="text-danger">This action cannot be undone.</p>
+            <p>This action cannot be undone.</p>
           </div>
           <div class="modal-footer">
             <button
               type="button"
               class="btn btn-secondary"
-              data-bs-dismiss="modal"
+              @click="showDeleteModal = false"
             >
               Cancel
             </button>
@@ -379,134 +380,110 @@
               type="button"
               class="btn btn-danger"
               @click="deleteText"
-              :disabled="isDeleting"
+              :disabled="deleting"
             >
-              <i class="fas fa-trash mr-1"></i> Delete
+              <span v-if="deleting">
+                <i class="fas fa-spinner fa-spin mr-1"></i> Deleting...
+              </span>
+              <span v-else> <i class="fas fa-trash mr-1"></i> Delete </span>
             </button>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Contact Details Modal -->
+    <!-- Modal Backdrop for Delete Modal -->
+    <div v-if="showDeleteModal" class="modal-backdrop fade show"></div>
+
+    <!-- Delete Confirmation Modal -->
     <div
-      class="modal"
-      :class="{ 'd-block': showContactDetailModal }"
-      tabindex="-1"
-      role="dialog"
+      class="modal fade"
+      :class="{ show: showDeleteModal }"
+      style="display: block"
+      v-if="showDeleteModal"
     >
-      <div class="modal-dialog modal-dialog-centered" role="document">
+      <div class="modal-dialog">
         <div class="modal-content">
-          <div class="modal-header bg-info text-white">
+          <div class="modal-header">
             <h5 class="modal-title">
-              <i class="fas fa-address-card mr-2"></i> Contact Details
+              <i class="fas fa-exclamation-triangle text-danger mr-2"></i>
+              Confirm Delete
             </h5>
             <button
               type="button"
               class="close"
-              @click="showContactDetailModal = false"
               aria-label="Close"
+              @click="showDeleteModal = false"
             >
               <span aria-hidden="true">&times;</span>
             </button>
           </div>
           <div class="modal-body">
-            <div v-if="selectedContact" class="card">
-              <div class="card-body">
-                <h5 class="card-title">{{ selectedContact.full_name }}</h5>
-                <p class="card-text">
-                  <i class="fas fa-phone text-primary mr-2"></i>
-                  <strong>Primary Phone:</strong>
-                  {{ selectedContact.phone_number }}
-                </p>
-
-                <!-- Contact Lists -->
-                <div
-                  v-if="
-                    selectedContact.lists && selectedContact.lists.length > 0
-                  "
-                >
-                  <hr />
-                  <h6>
-                    <i class="fas fa-list-ul mr-2"></i> Associated Contact
-                    Lists:
-                  </h6>
-                  <div class="list-group">
-                    <div
-                      v-for="list in selectedContact.lists"
-                      :key="list.id"
-                      class="list-group-item list-group-item-action flex-column align-items-start"
-                    >
-                      <div class="d-flex w-100 justify-content-between">
-                        <h6 class="mb-1">{{ list.name }}</h6>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <p>
+              Are you sure you want to delete the scheduled SMS:
+              <strong>{{ textToDelete?.text_title }}</strong
+              >?
+            </p>
+            <p class="text-danger">
+              <i class="fas fa-exclamation-circle mr-1"></i>
+              This action cannot be undone.
+            </p>
           </div>
           <div class="modal-footer">
-            <a
-              v-if="selectedContact"
-              :href="route('contacts.show', selectedContact.id)"
-              class="btn btn-primary"
-            >
-              <i class="fas fa-external-link-alt mr-1"></i> View Full Details
-            </a>
             <button
               type="button"
               class="btn btn-secondary"
-              @click="showContactDetailModal = false"
+              @click="showDeleteModal = false"
             >
-              Close
+              Cancel
+            </button>
+            <button
+              type="button"
+              class="btn btn-danger"
+              @click="deleteText"
+              :disabled="deleting"
+            >
+              <span v-if="deleting">
+                <i class="fas fa-spinner fa-spin mr-1"></i> Deleting...
+              </span>
+              <span v-else> <i class="fas fa-trash mr-1"></i> Delete </span>
             </button>
           </div>
         </div>
       </div>
-      <!-- Modal backdrop -->
-      <div
-        v-if="showContactDetailModal"
-        class="modal-backdrop fade show"
-        @click="showContactDetailModal = false"
-      ></div>
     </div>
   </DashboardLayout>
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onMounted, onUnmounted } from "vue";
+import { ref, computed, onMounted } from "vue";
+import { Link, router } from "@inertiajs/vue3";
+import Toast from "@/Services/toast";
 import axios from "axios";
-import ProgressDonut from "@/Components/ProgressDonut.vue";
-import { router } from "@inertiajs/vue3";
 import DashboardLayout from "@/Layouts/DashboardLayout.vue";
 import Pagination from "@/Components/Pagination.vue";
-import { Link } from "@inertiajs/vue3";
+// If we need the progress donut component, uncomment this:
+// import ProgressDonut from '@/Components/ProgressDonut.vue';
 
-// Props from controller
 const props = defineProps({
   texts: Object,
   filters: Object,
 });
 
-// Server-side search functionality
-const search = ref(props.filters?.search || "");
-
-// For template access
-const filteredTexts = computed(() => props.texts.data);
-
-// Debounce search to prevent excessive API calls
-let searchTimeout = null;
+// Search functionality
+const search = ref(props.filters.search || "");
 const performSearch = () => {
-  clearTimeout(searchTimeout);
-  searchTimeout = setTimeout(() => {
-    router.get(
-      route("sms.index"),
-      { search: search.value },
-      { preserveState: true, replace: true }
-    );
-  }, 500); // 500ms delay
+  router.get(
+    route("sms.scheduled"),
+    { search: search.value },
+    { preserveState: true, replace: true }
+  );
 };
+
+// Computed properties
+const filteredTexts = computed(() => {
+  return props.texts.data;
+});
 
 // Contacts view functionality
 const selectedText = ref(null);
@@ -537,7 +514,6 @@ const contactTypeLabel = computed(() => {
   }
 });
 
-// Organize manual contacts into three balanced columns for display
 // Parse contact IDs from the selectedText for list type SMS
 const parsedContactListIds = computed(() => {
   if (
@@ -645,178 +621,102 @@ const viewContacts = async (text) => {
       // For manual entries, contacts are already in recepient_contacts
       loadingContacts.value = false;
     } else if (text.contact_type === "list") {
-      // Step 2: Extract contact IDs from contact_list
-      let contactIds = [];
-
-      if (text.contact_list) {
-        // Try parsing as JSON first
-        try {
-          contactIds = JSON.parse(text.contact_list);
-        } catch (e) {
-          // If JSON parsing fails, split by comma
-          contactIds = text.contact_list
-            .split(",")
-            .map((id) => id.trim())
-            .filter(Boolean);
-        }
-      }
-
-      console.log("Extracted contact IDs:", contactIds);
-
-      if (contactIds.length > 0) {
-        try {
-          // Step 3: Make axios request to get contacts
-          const response = await axios.post(route("contacts.get-contacts"), {
-            contact_ids: contactIds,
-          });
-
-          console.log("API response:", response.data);
-
-          // Step 4: Store contacts for display
-          if (response.data && response.data.contacts) {
-            contactsList.value = response.data.contacts;
-          } else {
-            console.error("No contacts returned from API");
-          }
-        } catch (error) {
-          console.error("Error fetching contacts:", error);
-        }
-      }
-
+      // For list type, we need to fetch the contact lists
+      // If this were a real implementation, we would fetch from the server
+      // For now, let's just simulate the lists
+      contactsList.value = [];
       loadingContacts.value = false;
-    } else if (text.contact_type === "csv") {
-      // For CSV, just show download link
+    } else {
+      // For CSV uploads or any other type
       loadingContacts.value = false;
     }
   } catch (error) {
-    console.error("Error in viewContacts:", error);
+    console.error("Error fetching contact data:", error);
     loadingContacts.value = false;
   }
 };
 
-// Progress tracking
-const progressData = ref({});
-const progressInterval = ref(null);
-
-// Function to get active text IDs that need progress updates
-const getActiveTextIds = () => {
-  // Include all texts that are being processed or need progress tracking
-  // This includes pending (1), processing (2), sending (3), partial (4)
-  return filteredTexts.value
-    .filter((text) => {
-      // Include more status types to ensure we catch all that need updates
-      return (
-        (text.status_id >= 1 && text.status_id <= 4) || text.status_id === 7
-      ); // Also include any custom statuses
-    })
-    .map((text) => text.id);
-};
-
-// Function to fetch progress data from the server
-const fetchProgressData = async () => {
-  const activeIds = getActiveTextIds();
-
-  // Debug logging
-  console.log("Active text IDs for progress updates:", activeIds);
-
-  if (activeIds.length === 0) {
-    console.log("No active texts to fetch progress for");
-    return;
-  }
-
-  try {
-    console.log("Fetching progress data from API...");
-    const response = await axios.get(route("sms.progress"), {
-      params: { text_ids: activeIds },
-    });
-    console.log("Progress data received:", response.data);
-    progressData.value = response.data;
-  } catch (error) {
-    console.error("Error fetching progress data:", error);
-  }
-};
-
-// Color selection based on status and progress
-const getProgressColor = (statusId, percentage) => {
-  // If processing is complete, use green
-  if (percentage === 100) return "#28a745"; // Complete - green
-
-  // Different colors based on status
-  if (statusId === 6) return "#dc3545"; // Error - red
-  if (statusId === 5) return "#dc3545"; // Failed - red
-  if (statusId === 4) return "#ffc107"; // Partial - yellow
-  if (statusId === 3) return "#28a745"; // Sent - green
-  if (statusId === 2) return "#17a2b8"; // Processing - blue
-
-  // For pending or scheduled, use gray
-  return "#6c757d";
-};
-
-// Setup progress polling when component mounts
-onMounted(() => {
-  console.log("Component mounted, setting up progress polling");
-
-  // Fetch progress data immediately
-  fetchProgressData();
-
-  // Setup interval for updates every 30 seconds to reduce system load
-  progressInterval.value = setInterval(() => {
-    console.log("Progress poll triggered (30-second interval)");
-    fetchProgressData();
-  }, 30000); // 30 seconds
-});
-
-// Cleanup interval when component unmounts
-onUnmounted(() => {
-  console.log("Component unmounting, cleaning up interval");
-  if (progressInterval.value) {
-    clearInterval(progressInterval.value);
-    progressInterval.value = null;
-  }
-});
-
 // Delete functionality
 const textToDelete = ref(null);
-const isDeleting = ref(false);
+const showDeleteModal = ref(false);
+const deleting = ref(false);
 
 const confirmDelete = (text) => {
   textToDelete.value = text;
-  // Show modal
-  const modal = new bootstrap.Modal(document.getElementById("deleteModal"));
-  modal.show();
+  showDeleteModal.value = true;
 };
 
 const deleteText = () => {
-  if (textToDelete.value) {
-    isDeleting.value = true;
-    router.delete(route("sms.destroy", textToDelete.value.id), {
-      onSuccess: () => {
-        // Close modal
-        bootstrap.Modal.getInstance(
-          document.getElementById("deleteModal")
-        ).hide();
-        isDeleting.value = false;
-        textToDelete.value = null;
-      },
-      onError: () => {
-        isDeleting.value = false;
-      },
-    });
-  }
+  if (!textToDelete.value) return;
+
+  deleting.value = true;
+  const title = textToDelete.value.text_title;
+  const id = textToDelete.value.id;
+  
+  // Use axios directly for better control over the response
+  axios.delete(route("sms.destroy", id), {
+    headers: {
+      'X-Requested-With': 'XMLHttpRequest',
+      'Accept': 'application/json'
+    }
+  })
+  .then(response => {
+    showDeleteModal.value = false;
+    deleting.value = false;
+    
+    // Show success toast and remove the item from the list
+    Toast.success(response.data.message || `Scheduled SMS '${title}' deleted successfully.`);
+    
+    // Remove the deleted SMS from the list without a full page reload
+    const index = props.texts.data.findIndex(item => item.id === id);
+    if (index !== -1) {
+      props.texts.data.splice(index, 1);
+    }
+  })
+  .catch(error => {
+    deleting.value = false;
+    
+    // Show error toast with server message if available
+    const errorMessage = error.response?.data?.message || `Failed to delete SMS '${title}'. Please try again.`;
+    Toast.error(errorMessage);
+  });
 };
 
-// Format date for display
+// Helper functions
 const formatDate = (dateString) => {
   if (!dateString) return "";
   const date = new Date(dateString);
   return date.toLocaleString();
 };
-</script>
 
+const parseContacts = (contactsString) => {
+  if (!contactsString) return [];
+  return contactsString.split(",").map((contact) => contact.trim());
+};
+
+const formatColumns = (columnsJson) => {
+  try {
+    return JSON.parse(columnsJson);
+  } catch (e) {
+    return [];
+  }
+};
+
+const parseContactLists = (listsJson) => {
+  try {
+    const lists = JSON.parse(listsJson);
+    // In a real application, you would probably fetch the names of these lists
+    // For now, we'll just return generic names
+    return lists.map((id) => `List ${id}`);
+  } catch (e) {
+    return [];
+  }
+};
+</script>
 
 <style scoped>
 thead {
-  border-top: 1px solid #e3e3e3;
+  background-color: #f4f6f9;
 }
 
 .card-header {
@@ -834,12 +734,21 @@ thead {
   align-items: center;
 }
 
-thead th {
-  vertical-align: bottom;
-  border-bottom: 2px solid #dee2e6;
+.modal {
+  overflow-y: auto;
 }
 
-thead {
-  background-color: #f4f6f9;
+.badge {
+  font-size: 0.8rem;
+  padding: 0.35em 0.65em;
+}
+
+.btn-group .btn {
+  margin-right: 2px;
+}
+
+.contacts-table {
+  max-height: 400px;
+  overflow-y: auto;
 }
 </style>

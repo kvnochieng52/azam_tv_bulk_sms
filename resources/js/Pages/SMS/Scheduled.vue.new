@@ -1,0 +1,574 @@
+<template>
+  <DashboardLayout>
+    <div class="row">
+      <div class="col-12">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">
+              <i class="far fa-clock nav-icon"></i> &nbsp; Scheduled SMS Messages
+            </h3>
+            <div class="card-tools">
+              <a :href="route('sms.create')" class="btn btn-primary btn-sm">
+                <i class="fas fa-plus mr-1"></i> New Scheduled SMS
+              </a>
+            </div>
+          </div>
+          <div class="card-body">
+            <!-- Search functionality -->
+            <div class="dataTables_wrapper dt-bootstrap4">
+              <div class="row mb-3">
+                <div class="col-sm-12 col-md-6">
+                  <div class="dataTables_length">
+                    <label class="d-flex align-items-center">
+                      Search:
+                      <input
+                        type="search"
+                        class="form-control form-control-sm ms-2 ml-2"
+                        placeholder="Search scheduled messages..."
+                        v-model="search"
+                        @input="performSearch"
+                      />
+                    </label>
+                  </div>
+                </div>
+                <div class="col-sm-12 col-md-6 text-right">
+                  <div class="btn-group">
+                    <a
+                      :href="route('sms.export.csv', { search: search, scheduled: 1 })"
+                      class="btn btn-success btn-sm"
+                    >
+                      <i class="fas fa-file-csv mr-1"></i> Export to CSV
+                    </a>
+                  </div>
+                </div>
+              </div>
+
+              <div class="table-responsive">
+                <table class="table table-bordered table-striped">
+                  <thead>
+                    <tr>
+                      <th>Title</th>
+                      <th>Status</th>
+                      <th>Schedule Date</th>
+                      <th>Contacts</th>
+                      <th>Created By</th>
+                      <th>Created At</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody v-if="filteredTexts.length > 0">
+                    <tr v-for="text in filteredTexts" :key="text.id">
+                      <td>
+                        <b
+                          ><Link :href="route('sms.show', text.id)">{{ text.text_title }}</Link></b
+                        >
+                      </td>
+                      <td>
+                        <span
+                          class="badge"
+                          :class="'bg-' + text.status?.color_code"
+                        >
+                          {{ text.status?.text_status_name }}
+                        </span>
+                      </td>
+                      <td>
+                        <span class="badge bg-info p-2">
+                          {{ formatDate(text.schedule_date) }}
+                        </span>
+                      </td>
+                      <td>
+                        <div class="d-flex align-items-center">
+                          <span class="mr-2">{{ text.contacts_count }}</span>
+                          <button
+                            class="btn btn-sm btn-outline-info ml-2"
+                            @click.prevent="viewContacts(text)"
+                            title="View Contacts"
+                          >
+                            <i class="fas fa-eye"></i> view
+                          </button>
+                        </div>
+                      </td>
+                      <td>{{ text.creator?.name }}</td>
+                      <td>{{ formatDate(text.created_at) }}</td>
+                      <td>
+                        <div class="btn-group">
+                          <a
+                            :href="route('sms.show', text.id)"
+                            class="btn btn-outline-info btn-sm"
+                          >
+                            <i class="fas fa-eye"></i>
+                          </a>
+                          <a
+                            :href="route('sms.edit', text.id)"
+                            class="btn btn-outline-warning btn-sm"
+                          >
+                            <i class="fas fa-edit"></i>
+                          </a>
+                          <button
+                            @click="confirmDelete(text)"
+                            class="btn btn-outline-danger btn-sm"
+                          >
+                            <i class="fas fa-trash"></i>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                  <tbody v-else>
+                    <tr>
+                      <td colspan="7" class="text-center">
+                        No scheduled SMS messages found.
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="row mt-3" v-if="texts.data.length > 0">
+                <div class="col-sm-12 col-md-5">
+                  <div class="dataTables_info">
+                    Showing {{ texts.from }} to {{ texts.to }} of
+                    {{ texts.total }} entries
+                  </div>
+                </div>
+                <div class="col-sm-12 col-md-7">
+                  <div class="dataTables_paginate paging_simple_numbers">
+                    <ul class="pagination">
+                      <li
+                        class="paginate_button page-item previous"
+                        :class="{ disabled: !texts.prev_page_url }"
+                      >
+                        <Link
+                          class="page-link"
+                          :href="texts.prev_page_url"
+                          :preserve-scroll="true"
+                          :preserve-state="true"
+                        >
+                          Previous
+                        </Link>
+                      </li>
+                      <li
+                        class="paginate_button page-item next"
+                        :class="{ disabled: !texts.next_page_url }"
+                      >
+                        <Link
+                          class="page-link"
+                          :href="texts.next_page_url"
+                          :preserve-scroll="true"
+                          :preserve-state="true"
+                        >
+                          Next
+                        </Link>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Backdrop -->
+    <div v-if="showContactsModal" class="modal-backdrop fade show"></div>
+
+    <!-- Contacts Modal -->
+    <div
+      class="modal fade"
+      :class="{ show: showContactsModal }"
+      style="display: block"
+      v-if="showContactsModal"
+    >
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">
+              <i class="fas fa-address-book mr-2"></i>
+              Contacts for: {{ selectedText?.text_title }}
+            </h5>
+            <button
+              type="button"
+              class="close"
+              aria-label="Close"
+              @click="showContactsModal = false"
+            >
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <div class="modal-body">
+            <div v-if="loadingContacts" class="text-center p-5">
+              <div class="spinner-border text-primary" role="status">
+                <span class="sr-only">Loading...</span>
+              </div>
+              <p class="mt-3">Loading contacts...</p>
+            </div>
+            <div v-else>
+              <!-- Contact Type Information -->
+              <div class="alert" :class="contactTypeAlertClass">
+                <i :class="contactTypeIcon"></i>
+                <strong>Contact Type:</strong> {{ contactTypeLabel }}
+              </div>
+
+              <!-- For manual contacts -->
+              <div
+                v-if="
+                  selectedText?.contact_type === 'manual' &&
+                  selectedText?.recepient_contacts
+                "
+              >
+                <div class="table-responsive">
+                  <table class="table table-sm table-bordered table-striped">
+                    <thead>
+                      <tr>
+                        <th width="60">#</th>
+                        <th>Phone Number</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr
+                        v-for="(contact, index) in parseContacts(
+                          selectedText.recepient_contacts
+                        )"
+                        :key="index"
+                      >
+                        <td>{{ index + 1 }}</td>
+                        <td>{{ contact }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- For CSV contacts -->
+              <div
+                v-else-if="
+                  selectedText?.contact_type === 'csv' &&
+                  selectedText?.csv_file_name
+                "
+              >
+                <div class="mb-3">
+                  <strong>CSV File:</strong> {{ selectedText.csv_file_name }}
+                  <a
+                    v-if="selectedText.csv_file_path"
+                    :href="
+                      route(
+                        'sms.download.csv',
+                        selectedText.csv_file_name
+                      )
+                    "
+                    class="btn btn-sm btn-outline-primary ml-2"
+                  >
+                    <i class="fas fa-download mr-1"></i> Download CSV
+                  </a>
+                </div>
+
+                <div v-if="selectedText.csv_file_columns">
+                  <strong>Columns:</strong>
+                  <div class="mt-2">
+                    <span
+                      v-for="(column, index) in formatColumns(
+                        selectedText.csv_file_columns
+                      )"
+                      :key="index"
+                      class="badge bg-info mr-2 mb-2 p-2"
+                    >
+                      {{ column }}
+                    </span>
+                  </div>
+                </div>
+
+                <div class="alert alert-info mt-3">
+                  <i class="fas fa-info-circle mr-1"></i>
+                  This SMS was sent using data from the uploaded CSV file. 
+                  It will be sent to {{ selectedText.contacts_count }} contacts.
+                </div>
+              </div>
+
+              <!-- For contact list contacts -->
+              <div
+                v-else-if="
+                  selectedText?.contact_type === 'list' &&
+                  selectedText?.contact_list
+                "
+              >
+                <div class="mb-3">
+                  <strong>Contact Lists:</strong>
+                  <div class="mt-2">
+                    <span
+                      v-for="(list, index) in parseContactLists(
+                        selectedText.contact_list
+                      )"
+                      :key="index"
+                      class="badge bg-primary mr-2 mb-2 p-2"
+                    >
+                      {{ list }}
+                    </span>
+                  </div>
+                </div>
+
+                <div class="alert alert-info mt-3">
+                  <i class="fas fa-info-circle mr-1"></i>
+                  This SMS will be sent to {{ selectedText.contacts_count }} contacts from the selected lists.
+                </div>
+              </div>
+
+              <!-- Fallback if no contact information is available -->
+              <div v-else class="alert alert-info">
+                <i class="fas fa-info-circle mr-2"></i>
+                No contact information is available.
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              @click="showContactsModal = false"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div
+      class="modal fade"
+      :class="{ show: showDeleteModal }"
+      style="display: block"
+      v-if="showDeleteModal"
+    >
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header bg-danger text-white">
+            <h5 class="modal-title">
+              <i class="fas fa-exclamation-triangle mr-2"></i>
+              Confirm Delete
+            </h5>
+            <button
+              type="button"
+              class="close text-white"
+              aria-label="Close"
+              @click="showDeleteModal = false"
+            >
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <div class="modal-body">
+            <p>
+              Are you sure you want to delete the scheduled SMS
+              <strong>{{ textToDelete?.text_title }}</strong>?
+            </p>
+            <p>This action cannot be undone.</p>
+          </div>
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              @click="showDeleteModal = false"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              class="btn btn-danger"
+              @click="deleteText"
+              :disabled="deleting"
+            >
+              <span v-if="deleting">
+                <i class="fas fa-spinner fa-spin mr-1"></i> Deleting...
+              </span>
+              <span v-else>
+                <i class="fas fa-trash mr-1"></i> Delete
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Backdrop for Delete Modal -->
+    <div v-if="showDeleteModal" class="modal-backdrop fade show"></div>
+  </DashboardLayout>
+</template>
+
+<script setup>
+import { ref, computed } from "vue";
+import { Link, router } from "@inertiajs/vue3";
+import DashboardLayout from "@/Layouts/DashboardLayout.vue";
+
+const props = defineProps({
+  texts: Object,
+  filters: Object,
+});
+
+// Search functionality
+const search = ref(props.filters.search || "");
+const performSearch = () => {
+  router.get(
+    route("sms.scheduled"),
+    { search: search.value },
+    { preserveState: true, replace: true }
+  );
+};
+
+// Computed properties
+const filteredTexts = computed(() => {
+  return props.texts.data;
+});
+
+// Contacts view functionality
+const selectedText = ref(null);
+const showContactsModal = ref(false);
+const loadingContacts = ref(false);
+const contactDetail = ref(null);
+
+// Contact modal functions
+const showContactDetails = (contact) => {
+  contactDetail.value = contact;
+};
+
+// Contact type computed properties
+const contactTypeLabel = computed(() => {
+  if (!selectedText.value) return "";
+
+  switch (selectedText.value.contact_type) {
+    case "manual":
+      return "Manual Entry";
+    case "csv":
+      return "CSV Import";
+    case "list":
+      return "Contact Lists";
+    default:
+      return "Unknown";
+  }
+});
+
+const contactTypeIcon = computed(() => {
+  if (!selectedText.value) return "";
+
+  switch (selectedText.value.contact_type) {
+    case "manual":
+      return "fas fa-keyboard mr-2";
+    case "csv":
+      return "fas fa-file-csv mr-2";
+    case "list":
+      return "fas fa-list mr-2";
+    default:
+      return "fas fa-question-circle mr-2";
+  }
+});
+
+const contactTypeAlertClass = computed(() => {
+  if (!selectedText.value) return "alert-info";
+
+  switch (selectedText.value.contact_type) {
+    case "manual":
+      return "alert-primary";
+    case "csv":
+      return "alert-success";
+    case "list":
+      return "alert-warning";
+    default:
+      return "alert-info";
+  }
+});
+
+// Function to view contacts for a text
+const viewContacts = (text) => {
+  selectedText.value = text;
+  showContactsModal.value = true;
+  loadingContacts.value = true;
+
+  // If it's a direct list of contacts, we can show them immediately
+  if (text.contact_type === "manual" && text.recepient_contacts) {
+    loadingContacts.value = false;
+    return;
+  }
+
+  // If it's CSV or Contact List, just show the metadata we have
+  loadingContacts.value = false;
+};
+
+// Delete functionality
+const textToDelete = ref(null);
+const showDeleteModal = ref(false);
+const deleting = ref(false);
+
+const confirmDelete = (text) => {
+  textToDelete.value = text;
+  showDeleteModal.value = true;
+};
+
+const deleteText = () => {
+  if (!textToDelete.value) return;
+
+  deleting.value = true;
+  router.delete(route("sms.destroy", textToDelete.value.id), {
+    onSuccess: () => {
+      showDeleteModal.value = false;
+      deleting.value = false;
+    },
+    onError: () => {
+      deleting.value = false;
+    },
+  });
+};
+
+// Helper functions
+const formatDate = (dateString) => {
+  if (!dateString) return "";
+  const date = new Date(dateString);
+  return date.toLocaleString();
+};
+
+const parseContacts = (contactsString) => {
+  if (!contactsString) return [];
+  return contactsString.split(",").map((contact) => contact.trim());
+};
+
+const formatColumns = (columnsJson) => {
+  try {
+    return JSON.parse(columnsJson);
+  } catch (e) {
+    return [];
+  }
+};
+
+const parseContactLists = (listsJson) => {
+  try {
+    const lists = JSON.parse(listsJson);
+    // In a real application, you would probably fetch the names of these lists
+    // For now, we'll just return generic names
+    return lists.map((id) => `List ${id}`);
+  } catch (e) {
+    return [];
+  }
+};
+</script>
+
+<style scoped>
+thead {
+  background-color: #f4f6f9;
+}
+
+.modal {
+  overflow-y: auto;
+}
+
+.badge {
+  font-size: 0.8rem;
+  padding: 0.35em 0.65em;
+}
+
+.btn-group .btn {
+  margin-right: 2px;
+}
+
+.contacts-table {
+  max-height: 400px;
+  overflow-y: auto;
+}
+</style>

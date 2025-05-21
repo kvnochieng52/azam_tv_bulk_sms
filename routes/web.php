@@ -46,15 +46,22 @@ Route::middleware('auth')->group(function () {
         // SMS Management
         Route::get('/', [\App\Http\Controllers\TextController::class, 'index'])->name('sms.index');
         Route::get('/export/csv', [\App\Http\Controllers\TextController::class, 'exportCsv'])->name('sms.export.csv');
+        Route::get('/export/{text}/detail', [\App\Http\Controllers\TextController::class, 'exportSmsDetail'])->name('sms.export.detail');
         Route::get('/download-csv/{filename}', [\App\Http\Controllers\TextController::class, 'downloadCsv'])->name('sms.download.csv');
         Route::get('/progress', [\App\Http\Controllers\TextController::class, 'getProgress'])->name('sms.progress');
-        Route::get('/{text}', [\App\Http\Controllers\TextController::class, 'show'])->name('sms.show');
-        Route::get('/{text}/edit', [\App\Http\Controllers\TextController::class, 'edit'])->name('sms.edit');
-        Route::put('/{text}', [\App\Http\Controllers\TextController::class, 'update'])->name('sms.update');
-        Route::delete('/{text}', [\App\Http\Controllers\TextController::class, 'destroy'])->name('sms.destroy');
+        Route::get('/statistics', [\App\Http\Controllers\TextController::class, 'getSmsStatistics'])->name('sms.statistics');
         
         // SMS Logs
         Route::get('/logs/all', [\App\Http\Controllers\TextController::class, 'logs'])->name('sms.logs');
+        
+        // Scheduled SMS
+        Route::get('/scheduled', [\App\Http\Controllers\TextController::class, 'scheduled'])->name('sms.scheduled');
+        
+        // Routes with parameters should come last
+        Route::get('/{text}/edit', [\App\Http\Controllers\TextController::class, 'edit'])->name('sms.edit');
+        Route::put('/{text}', [\App\Http\Controllers\TextController::class, 'update'])->name('sms.update');
+        Route::delete('/{text}', [\App\Http\Controllers\TextController::class, 'destroy'])->name('sms.destroy');
+        Route::get('/{text}', [\App\Http\Controllers\TextController::class, 'show'])->name('sms.show');
     });
     
     // Contact Management Routes
@@ -62,6 +69,9 @@ Route::middleware('auth')->group(function () {
     
     // API route for fetching contacts for select2
     Route::post('/contacts/get-contacts', [\App\Http\Controllers\ContactController::class, 'getContacts'])->name('contacts.get-contacts');
+    
+    // API route for fetching contact lists by IDs
+    Route::get('/api/contacts/lists', [\App\Http\Controllers\ContactController::class, 'getContactListsByIds'])->name('api.contacts.lists');
 });
 
 require __DIR__.'/auth.php';

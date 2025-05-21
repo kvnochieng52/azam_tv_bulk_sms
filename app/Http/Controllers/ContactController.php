@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\Response;
 
 class ContactController extends Controller
 {
@@ -72,7 +73,9 @@ class ContactController extends Controller
             ]);
         }
 
-        return redirect()->route('contacts.index')->with('success', 'Contact created successfully.');
+        $contactCount = count($request->contact_lists);
+        return redirect()->route('contacts.index')
+            ->with('success', "Contact list '{$request->title}' created successfully with {$contactCount} contacts.");
     }
 
     /**
@@ -128,8 +131,10 @@ class ContactController extends Controller
                 'telephone' => $list['telephone']
             ]);
         }
-
-        return redirect()->route('contacts.index')->with('success', 'Contact updated successfully.');
+        
+        $contactCount = count($request->contact_lists);
+        return redirect()->route('contacts.index')
+            ->with('success', "Contact list '{$request->title}' updated successfully with {$contactCount} contacts.");
     }
 
     /**
@@ -137,10 +142,52 @@ class ContactController extends Controller
      */
     public function destroy(Contact $contact)
     {
+        $title = $contact->title;
+        $contactCount = $contact->contactLists()->count();
+        
         $contact->contactLists()->delete();
         $contact->delete();
 
-        return redirect()->route('contacts.index')->with('success', 'Contact deleted successfully.');
+        return redirect()->route('contacts.index')
+            ->with('success', "Contact list '{$title}' with {$contactCount} contacts deleted successfully.");
+    }
+    
+    /**
+     * API endpoint to get contact lists by IDs
+     * 
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getContactListsByIds(Request $request)
+    {
+        // Get the IDs from the request
+        $ids = $request->query('ids');
+        
+        if (empty($ids)) {
+            return Response::json(['error' => 'No contact IDs provided'], 400);
+        }
+        
+        // Parse the comma-separated IDs
+        $contactIds = explode(',', $ids);
+        
+        // Fetch the contacts with their contact list counts
+        $contacts = Contact::whereIn('id', $contactIds)
+            ->withCount('contactLists')
+            ->get()
+            ->map(function ($contact) {
+                return [
+                    'id' => $contact->id,
+                    'name' => $contact->title,
+                    'is_active' => $contact->is_active,
+                    'contacts_count' => $contact->contact_lists_count,
+                    'created_at' => $contact->created_at ? $contact->created_at->format('Y-m-d H:i:s') : null,
+                ];
+            });
+        
+        return Response::json([
+            'success' => true,
+            'lists' => $contacts
+        ]);
     }
     
     /**

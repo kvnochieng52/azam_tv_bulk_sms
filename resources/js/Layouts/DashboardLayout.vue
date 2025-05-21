@@ -1,5 +1,6 @@
 <template>
   <LoadingBar />
+  <ToastMessages />
   <div
     class="wrapper"
     :class="{
@@ -199,6 +200,18 @@
                     <p>SMS Management</p>
                   </Link>
                 </li>
+                <li class="nav-item">
+                  <Link
+                    :href="route('sms.scheduled')"
+                    class="nav-link"
+                    :class="{
+                      active: $page.url.startsWith('/sms/scheduled'),
+                    }"
+                  >
+                    <i class="far fa-clock nav-icon"></i>
+                    <p>Scheduled SMS</p>
+                  </Link>
+                </li>
                 <!-- <li class="nav-item">
                   <Link :href="route('sms.logs')" class="nav-link" :class="{ 'active': $page.url.startsWith('/sms/logs') }">
                     <i class="far fa-file-alt nav-icon"></i>
@@ -295,6 +308,7 @@
 import { ref, onMounted, computed, onBeforeUnmount } from "vue";
 import { router, usePage, Link } from "@inertiajs/vue3";
 import LoadingBar from "@/Components/LoadingBar.vue";
+import ToastMessages from "@/Components/ToastMessages.vue";
 
 const props = defineProps({
   title: {
@@ -445,10 +459,42 @@ function handleResize() {
   }
 }
 
+// Suppress message events from browser extensions
+const suppressMessageEvents = () => {
+  // Override the default console.log to filter out specific message events
+  const originalConsoleLog = console.log;
+  console.log = function(...args) {
+    // Check if the log is for a MessageEvent
+    if (args.length > 0 && 
+        typeof args[0] === 'string' && 
+        (args[0].includes('event>>>>>') || args[0].includes('MessageEvent'))) {
+      // Suppress the log
+      return;
+    }
+    // Otherwise, pass through to the original console.log
+    originalConsoleLog.apply(console, args);
+  };
+  
+  // Add a capture-phase event listener to stop message events from extensions
+  window.addEventListener('message', (event) => {
+    // Check if it's from a browser extension
+    if (event.origin === window.location.origin && 
+        event.data && 
+        typeof event.data === 'object' && 
+        event.data.source && 
+        event.data.source.includes('content-script')) {
+      event.stopImmediatePropagation();
+    }
+  }, true);
+};
+
 // Initialize Vue functionality after component is mounted
 onMounted(() => {
   // Set initial active menu item
   setActiveMenuItem();
+  
+  // Suppress unwanted message events
+  suppressMessageEvents();
 
   // Apply theme based on user preference
   applyTheme();

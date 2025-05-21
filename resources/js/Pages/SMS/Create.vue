@@ -439,6 +439,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { router, useForm } from '@inertiajs/vue3';
+import Toast from '@/Services/toast';
 import DashboardLayout from '@/Layouts/DashboardLayout.vue';
 import MultiSelect from '@/Components/MultiSelect.vue';
 // No need for external datepicker components
@@ -1174,7 +1175,14 @@ const submitForm = () => {
   // Submit form
   form.post(route('sms.store'), {
     forceFormData: true,
-    onSuccess: () => {
+    onSuccess: (page) => {
+      // Show success toast message directly
+      if (form.scheduled) {
+        Toast.success('SMS scheduled successfully for ' + form.schedule_date);
+      } else {
+        Toast.success('SMS created successfully and queued for sending.');
+      }
+      
       // Reset form
       form.reset();
       csvFileName.value = '';
@@ -1185,6 +1193,7 @@ const submitForm = () => {
     onError: (formErrors) => {
       errors.value = formErrors;
       isSubmitting.value = false;
+      Toast.error('There was an error submitting the form. Please check the fields and try again.');
     }
   });
 };

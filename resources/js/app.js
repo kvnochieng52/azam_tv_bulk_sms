@@ -5,10 +5,33 @@ import { createInertiaApp } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';
 
+// Import Toast Notification System
+import Toast from 'vue-toastification';
+import 'vue-toastification/dist/index.css';
+
 // We've removed AdminLTE JavaScript completely
 // Instead, we're implementing the necessary functionality directly in Vue
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+
+// Configure the toast notification system
+const toastOptions = {
+    position: "top-right",
+    timeout: 5000,
+    closeOnClick: true,
+    pauseOnFocusLoss: true,
+    pauseOnHover: true,
+    draggable: true,
+    draggablePercent: 0.6,
+    showCloseButtonOnHover: false,
+    hideProgressBar: false,
+    closeButton: "button",
+    icon: true,
+    rtl: false,
+    transition: "Vue-Toastification__bounce",
+    maxToasts: 20,
+    newestOnTop: true
+};
 
 createInertiaApp({
     title: (title) => title ? `${title} - ${appName}` : appName,
@@ -17,6 +40,7 @@ createInertiaApp({
         return createApp({ render: () => h(App, props) })
             .use(plugin)
             .use(ZiggyVue)
+            .use(Toast, toastOptions)
             .mount(el);
     },
     progress: {
