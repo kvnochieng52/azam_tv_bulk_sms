@@ -531,8 +531,11 @@ class TextController extends Controller
             \App\Jobs\SendSmsJob::dispatch($text)->delay(now()->addSeconds(5));
 
             // Redirect to SMS index for direct messages
-            return redirect()->route('sms.index')
-                ->with('success', 'SMS created successfully and queued for sending.');
+            // return redirect()->route('sms.index')
+            //     ->with('success', 'SMS created successfully and queued for sending.');
+
+            return redirect()->route('sms.index');
+            // ->with('success', 'SMS created successfully and queued for sending.');
         } else {
             // For scheduled SMS, schedule the job to run at the specified date and time
             $scheduleDate = new \DateTime($text->schedule_date);
@@ -547,8 +550,8 @@ class TextController extends Controller
             }
 
             // Redirect to scheduled SMS page for scheduled messages
-            return redirect()->route('sms.scheduled')
-                ->with('success', 'SMS scheduled successfully for ' . $text->schedule_date . '.');
+            return redirect()->route('sms.scheduled');
+            //  ->with('success', 'SMS scheduled successfully for ' . $text->schedule_date . '.');
         }
     }
 

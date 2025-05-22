@@ -267,11 +267,46 @@
                 </li>
               </ul>
             </li>
-            <li class="nav-item">
-              <a href="/settings" class="nav-link">
-                <i class="nav-icon fas fa-cog"></i>
-                <p>Settings</p>
+
+            <li class="nav-item" :class="{ 'menu-open': isMenuOpen('users') }">
+              <a href="#" class="nav-link" @click.prevent="toggleMenu('users')">
+                <i class="nav-icon fas fa-users"></i>
+                <p>
+                  Users Management
+                  <i class="fas fa-angle-left right"></i>
+                </p>
               </a>
+              <ul
+                class="nav nav-treeview"
+                :style="{ display: isMenuOpen('users') ? 'block' : 'none' }"
+              >
+                <li class="nav-item">
+                  <Link
+                    :href="route('users.index')"
+                    class="nav-link"
+                    :class="{
+                      active:
+                        $page.url === '/users' ||
+                        $page.url.startsWith('/users?'),
+                    }"
+                  >
+                    <i class="far fa-user nav-icon"></i>
+                    <p>View Users</p>
+                  </Link>
+                </li>
+                <li class="nav-item">
+                  <Link
+                    :href="route('users.create')"
+                    class="nav-link"
+                    :class="{
+                      active: $page.url.startsWith('/users/create'),
+                    }"
+                  >
+                    <i class="fas fa-user-plus nav-icon"></i>
+                    <p>Create User</p>
+                  </Link>
+                </li>
+              </ul>
             </li>
           </ul>
         </nav>
@@ -397,6 +432,10 @@ function setActiveMenuItem() {
   ) {
     openMenus.value.push("contacts");
   }
+
+  if (currentUrl.includes("/users") && !openMenus.value.includes("users")) {
+    openMenus.value.push("users");
+  }
 }
 
 // Toggle dark mode
@@ -463,36 +502,44 @@ function handleResize() {
 const suppressMessageEvents = () => {
   // Override the default console.log to filter out specific message events
   const originalConsoleLog = console.log;
-  console.log = function(...args) {
+  console.log = function (...args) {
     // Check if the log is for a MessageEvent
-    if (args.length > 0 && 
-        typeof args[0] === 'string' && 
-        (args[0].includes('event>>>>>') || args[0].includes('MessageEvent'))) {
+    if (
+      args.length > 0 &&
+      typeof args[0] === "string" &&
+      (args[0].includes("event>>>>>") || args[0].includes("MessageEvent"))
+    ) {
       // Suppress the log
       return;
     }
     // Otherwise, pass through to the original console.log
     originalConsoleLog.apply(console, args);
   };
-  
+
   // Add a capture-phase event listener to stop message events from extensions
-  window.addEventListener('message', (event) => {
-    // Check if it's from a browser extension
-    if (event.origin === window.location.origin && 
-        event.data && 
-        typeof event.data === 'object' && 
-        event.data.source && 
-        event.data.source.includes('content-script')) {
-      event.stopImmediatePropagation();
-    }
-  }, true);
+  window.addEventListener(
+    "message",
+    (event) => {
+      // Check if it's from a browser extension
+      if (
+        event.origin === window.location.origin &&
+        event.data &&
+        typeof event.data === "object" &&
+        event.data.source &&
+        event.data.source.includes("content-script")
+      ) {
+        event.stopImmediatePropagation();
+      }
+    },
+    true
+  );
 };
 
 // Initialize Vue functionality after component is mounted
 onMounted(() => {
   // Set initial active menu item
   setActiveMenuItem();
-  
+
   // Suppress unwanted message events
   suppressMessageEvents();
 

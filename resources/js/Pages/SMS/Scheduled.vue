@@ -140,7 +140,9 @@
                   </div>
                 </div>
                 <div class="col-sm-12 col-md-7">
-                  <div class="dataTables_paginate paging_simple_numbers">
+                  <div
+                    class="dataTables_paginate paging_simple_numbers d-flex justify-content-end"
+                  >
                     <pagination :links="texts.links" />
                   </div>
                 </div>
@@ -652,34 +654,40 @@ const deleteText = () => {
   deleting.value = true;
   const title = textToDelete.value.text_title;
   const id = textToDelete.value.id;
-  
+
   // Use axios directly for better control over the response
-  axios.delete(route("sms.destroy", id), {
-    headers: {
-      'X-Requested-With': 'XMLHttpRequest',
-      'Accept': 'application/json'
-    }
-  })
-  .then(response => {
-    showDeleteModal.value = false;
-    deleting.value = false;
-    
-    // Show success toast and remove the item from the list
-    Toast.success(response.data.message || `Scheduled SMS '${title}' deleted successfully.`);
-    
-    // Remove the deleted SMS from the list without a full page reload
-    const index = props.texts.data.findIndex(item => item.id === id);
-    if (index !== -1) {
-      props.texts.data.splice(index, 1);
-    }
-  })
-  .catch(error => {
-    deleting.value = false;
-    
-    // Show error toast with server message if available
-    const errorMessage = error.response?.data?.message || `Failed to delete SMS '${title}'. Please try again.`;
-    Toast.error(errorMessage);
-  });
+  axios
+    .delete(route("sms.destroy", id), {
+      headers: {
+        "X-Requested-With": "XMLHttpRequest",
+        Accept: "application/json",
+      },
+    })
+    .then((response) => {
+      showDeleteModal.value = false;
+      deleting.value = false;
+
+      // Show success toast and remove the item from the list
+      Toast.success(
+        response.data.message ||
+          `Scheduled SMS '${title}' deleted successfully.`
+      );
+
+      // Remove the deleted SMS from the list without a full page reload
+      const index = props.texts.data.findIndex((item) => item.id === id);
+      if (index !== -1) {
+        props.texts.data.splice(index, 1);
+      }
+    })
+    .catch((error) => {
+      deleting.value = false;
+
+      // Show error toast with server message if available
+      const errorMessage =
+        error.response?.data?.message ||
+        `Failed to delete SMS '${title}'. Please try again.`;
+      Toast.error(errorMessage);
+    });
 };
 
 // Helper functions

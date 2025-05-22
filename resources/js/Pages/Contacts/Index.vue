@@ -5,23 +5,28 @@
         <div class="card">
           <div class="card-header bg-primary text-white">
             <div class="d-flex justify-content-between align-items-center">
-              <h3 class="card-title"><i class="fas fa-address-book me-2"></i>Contact Groups</h3>
+              <h3 class="card-title">
+                <i class="fas fa-address-book me-2"></i>Contact Groups
+              </h3>
               <div class="d-flex align-items-center">
                 <!-- Search Input -->
-                <div class="input-group me-2" style="width: 250px;">
-                  <input 
-                    type="text" 
-                    v-model="search" 
-                    class="form-control" 
+                <div class="input-group me-2" style="width: 250px">
+                  <input
+                    type="text"
+                    v-model="search"
+                    class="form-control"
                     placeholder="Search contacts..."
                     @input="performSearch"
-                  >
+                  />
                   <span class="input-group-text bg-primary text-white">
                     <i class="fas fa-search"></i>
                   </span>
                 </div>
                 <!-- Add Contact Button -->
-                <Link :href="route('contacts.create')" class="btn btn-primary btn-sm">
+                <Link
+                  :href="route('contacts.create')"
+                  class="btn btn-primary btn-sm"
+                >
                   <i class="fas fa-plus me-1"></i> Add Contact
                 </Link>
               </div>
@@ -47,14 +52,26 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="(contact, index) in contacts.data" :key="contact.id" :class="{'active-contact': contact.is_active}">
+                  <tr
+                    v-for="(contact, index) in contacts.data"
+                    :key="contact.id"
+                    :class="{ 'active-contact': contact.is_active }"
+                  >
                     <td class="ps-3">{{ index + 1 }}</td>
                     <td>
                       <div class="d-flex align-items-center">
                         <div class="contact-name">
                           <span class="fw-medium">{{ contact.title }}</span>
-                          <small v-if="contact.is_active" class="text-success d-block"><i class="fas fa-check-circle me-1"></i>Active</small>
-                          <small v-else class="text-danger d-block"><i class="fas fa-times-circle me-1"></i>Inactive</small>
+                          <small
+                            v-if="contact.is_active"
+                            class="text-success d-block"
+                            ><i class="fas fa-check-circle me-1"></i
+                            >Active</small
+                          >
+                          <small v-else class="text-danger d-block"
+                            ><i class="fas fa-times-circle me-1"></i
+                            >Inactive</small
+                          >
                         </div>
                       </div>
                     </td>
@@ -65,23 +82,31 @@
                     </td>
                     <td>
                       <span :class="getStatusBadgeClass(contact.is_active)">
-                        {{ contact.is_active ? 'Active' : 'Inactive' }}
+                        {{ contact.is_active ? "Active" : "Inactive" }}
                       </span>
                     </td>
                     <td>{{ formatDate(contact.created_at) }}</td>
                     <td>
                       <div class="d-flex justify-content-center">
-                        <Link :href="route('contacts.show', contact.id)" class="btn btn-outline-info btn-sm me-1" title="View Contact">
+                        <Link
+                          :href="route('contacts.show', contact.id)"
+                          class="btn btn-outline-info btn-sm me-1"
+                          title="View Contact"
+                        >
                           <i class="fas fa-eye"></i>
                         </Link>
-                        <Link :href="route('contacts.edit', contact.id)" class="btn btn-outline-primary btn-sm me-1" title="Edit Contact">
+                        <Link
+                          :href="route('contacts.edit', contact.id)"
+                          class="btn btn-outline-primary btn-sm me-1"
+                          title="Edit Contact"
+                        >
                           <i class="fas fa-edit"></i>
                         </Link>
-                        <Link 
-                          :href="route('contacts.destroy', contact.id)" 
-                          method="delete" 
-                          as="button" 
-                          class="btn btn-outline-danger btn-sm" 
+                        <Link
+                          :href="route('contacts.destroy', contact.id)"
+                          method="delete"
+                          as="button"
+                          class="btn btn-outline-danger btn-sm"
                           @click.prevent="confirmDelete(contact)"
                           title="Delete Contact"
                         >
@@ -101,7 +126,7 @@
                 </tbody>
               </table>
             </div>
-            
+
             <!-- Pagination with more compact styling -->
             <div class="p-3">
               <Pagination :links="contacts.links" />
@@ -114,24 +139,24 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
-import { Link, router } from '@inertiajs/vue3';
-import DashboardLayout from '@/Layouts/DashboardLayout.vue';
-import Pagination from '@/Components/Pagination.vue';
+import { ref, onMounted } from "vue";
+import { Link, router } from "@inertiajs/vue3";
+import DashboardLayout from "@/Layouts/DashboardLayout.vue";
+import Pagination from "@/Components/Pagination.vue";
 
 const props = defineProps({
-  contacts: Object
+  contacts: Object,
 });
 
 // Search functionality
-const search = ref('');
+const search = ref("");
 let searchTimeout = null;
 
 const performSearch = () => {
   clearTimeout(searchTimeout);
   searchTimeout = setTimeout(() => {
     router.get(
-      route('contacts.index'),
+      route("contacts.index"),
       { search: search.value },
       { preserveState: true, preserveScroll: true }
     );
@@ -139,27 +164,29 @@ const performSearch = () => {
 };
 
 const formatDate = (dateString) => {
-  if (!dateString) return '';
+  if (!dateString) return "";
   const date = new Date(dateString);
   // Return a more compact date format
-  return new Intl.DateTimeFormat('en-US', { 
-    year: 'numeric',
-    month: 'short',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true
+  return new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
   }).format(date);
 };
 
 const getStatusBadgeClass = (isActive) => {
-  return isActive 
-    ? 'badge text-bg-success px-2 py-1' 
-    : 'badge text-bg-danger px-2 py-1';
+  return isActive
+    ? "badge text-bg-success px-2 py-1"
+    : "badge text-bg-danger px-2 py-1";
 };
 
 const confirmDelete = (contact) => {
-  return confirm(`Are you sure you want to delete "${contact.title}"? This will also delete all contacts in this group.`);
+  return confirm(
+    `Are you sure you want to delete "${contact.title}"? This will also delete all contacts in this group.`
+  );
 };
 </script>
 
