@@ -371,6 +371,8 @@ class SendSmsJob implements ShouldQueue
         $senderId = config('services.africastalking.sender_id');
 
 
+        //Log::info("{$username},{ $apiKey}, {$senderId}");
+
 
         try {
             $AT = new AfricasTalking($username, $apiKey,);

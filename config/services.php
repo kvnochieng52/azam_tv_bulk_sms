@@ -33,7 +33,7 @@ return [
 
 
     'africastalking' => [
-        'username' => env('AT_USERNAME'),
+        'username' => env('AT_USER_NAME'),
         'api_key' => env('AT_API_KEY'),
         'sender_id' => env('AT_SENDER_ID'),
     ],
