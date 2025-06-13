@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use AfricasTalking\SDK\AfricasTalking;
 use Illuminate\Support\Facades\File;
 
 use App\Models\Text;
@@ -148,6 +149,10 @@ class TextController extends Controller
      */
     public function create()
     {
+
+
+
+
         // Get contact groups for dropdown
         $contacts = Contact::where('is_active', 1)
             ->withCount(['contactLists' => function ($query) {

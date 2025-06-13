@@ -131,7 +131,6 @@
                 </table>
               </div>
 
-              <!-- Pagination - always show when there are results -->
               <div class="row mt-3" v-if="texts.data.length > 0">
                 <div class="col-sm-12 col-md-5">
                   <div class="dataTables_info">

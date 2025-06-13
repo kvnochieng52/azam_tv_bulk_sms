@@ -364,13 +364,16 @@ class SendSmsJob implements ShouldQueue
             return;
         }
 
-        // Use environment variables for API credentials
-        $username = env('AFRICAS_TALKING_USERNAME', 'sandbox');
-        $apiKey = env('AFRICAS_TALKING_API_KEY', 'atsk_4a781f01f2993900998a885155ef6f6eae81b012b43da9e715473f59f1025a7473ad18d0');
-        $senderId = env('AFRICAS_TALKING_SENDER_ID', 'BEYOND_SMS');
+
+
+        $username  = config('services.africastalking.username');
+        $apiKey = config('services.africastalking.api_key');
+        $senderId = config('services.africastalking.sender_id');
+
+
 
         try {
-            $AT = new AfricasTalking($username, $apiKey);
+            $AT = new AfricasTalking($username, $apiKey,);
             $sms = $AT->sms();
 
             // Update status to sending
@@ -409,18 +412,31 @@ class SendSmsJob implements ShouldQueue
                             'from'    => $senderId,
                         ]);
 
+
+                        log::info("RESPONSE DATA", $response);
                         Log::info("Batch {$batchIndex} - Sent to " . count($phones) . " recipients");
 
+
+                        $responseArray = json_decode(json_encode($response), true);
+
                         // Track successful sends
+
                         if (
-                            isset($response['data']) &&
-                            isset($response['data']['SMSMessageData']) &&
-                            isset($response['data']['SMSMessageData']['Recipients'])
+                            // isset($responseArray['data']) &&
+                            // isset($responseArray['data']['SMSMessageData']) &&
+                            isset($responseArray['data']['SMSMessageData']['Recipients'])
                         ) {
 
-                            $recipients = $response['data']['SMSMessageData']['Recipients'];
+                            $recipients = $responseArray['data']['SMSMessageData']['Recipients'];
+
+
+
+                            // log::info("REX DATA", $recipients);
 
                             foreach ($recipients as $recipient) {
+
+                                // log::info("HAVE ENETERD HERE: ", $recipient);
+
                                 $status = $recipient['status'] === 'Success' ? TextStatus::SENT : TextStatus::FAILED;
 
                                 if ($status === TextStatus::SENT) {
@@ -443,10 +459,10 @@ class SendSmsJob implements ShouldQueue
                                 ];
 
                                 // Bulk insert when we have enough records
-                                if (count($queueRecords) >= 1000) {
-                                    Queue::insert($queueRecords);
-                                    $queueRecords = [];
-                                }
+                                // if (count($queueRecords) >= 1000) {
+                                Queue::insert($queueRecords);
+                                $queueRecords = [];
+                                // }
                             }
                         }
                     } catch (\Exception $e) {

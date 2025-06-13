@@ -14,7 +14,7 @@ const props = defineProps({
   },
 });
 
-const error = computed(() => usePage().props.flash.error);
+// const error = computed(() => usePage().props.flash.error);
 
 console.log("ERROR:" + props.error);
 

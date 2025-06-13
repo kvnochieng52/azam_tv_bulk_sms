@@ -633,7 +633,7 @@ const contactTypeAlertClass = computed(() => {
 
 // Function to view contacts for a text
 const viewContacts = async (text) => {
-  // Step 1: Set selected text and show loading state
+  // Set selected text and show loading state
   selectedText.value = text;
   loadingContacts.value = true;
   contactsList.value = [];
@@ -642,7 +642,6 @@ const viewContacts = async (text) => {
   showContactsModal.value = true;
 
   try {
-    // Step 2: Handle contact type
     if (text.contact_type === "manual") {
       // For manual entries, contacts are already in recepient_contacts
       loadingContacts.value = false;
@@ -765,7 +764,7 @@ onMounted(() => {
   progressInterval.value = setInterval(() => {
     console.log("Progress poll triggered (30-second interval)");
     fetchProgressData();
-  }, 30000); // 30 seconds
+  }, 3000); // 30 seconds
 });
 
 // Cleanup interval when component unmounts
