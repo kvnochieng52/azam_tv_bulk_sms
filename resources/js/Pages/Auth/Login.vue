@@ -45,7 +45,7 @@ const submit = () => {
           style="max-width: 140px"
         />
         <h1 class="h4 font-weight-bold">
-          Azam TV <span class="text-primary">SMS</span>
+          Azam TV <span class="text-primary">SMS 2</span>
         </h1>
       </div>
 
