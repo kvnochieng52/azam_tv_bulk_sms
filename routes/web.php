@@ -35,6 +35,18 @@ Route::middleware(['auth', 'is_active'])->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/home', [DashboardController::class, 'index'])->name('home');
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('home.dashboard');
+    Route::get('/dashboard/balance', [DashboardController::class, 'balance'])
+        ->name('dashboard.balance');
+    Route::get('/dashboard/stats', [DashboardController::class, 'getStats'])
+        ->name('dashboard.stats');
+
+    Route::get('/dashboard/monthly-stats', [DashboardController::class, 'getMonthlyStats'])
+        ->name('dashboard.monthly-stats');
+
+
+    Route::get('/dashboard/recent-sms', [DashboardController::class, 'getRecentSms'])
+        ->name('dashboard.recent-sms');
+
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');

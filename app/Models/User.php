@@ -39,6 +39,9 @@ class User extends Authenticatable
         'remember_token',
     ];
 
+
+
+
     /**
      * The attributes that should be cast.
      *
@@ -48,4 +51,23 @@ class User extends Authenticatable
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
     ];
+
+
+
+    public static function getUserPermissions($id)
+    {
+
+        $user = User::find($id);
+
+        $permissions = $user->getAllPermissions();
+
+        $userPermissioinsArray = [];
+
+        foreach ($permissions as $item) {
+            if (isset($item['name'])) {
+                $userPermissioinsArray[] = $item['name'];
+            }
+        }
+        return $userPermissioinsArray;
+    }
 }

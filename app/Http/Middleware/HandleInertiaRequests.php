@@ -2,7 +2,9 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -34,6 +36,9 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $request->user(),
             ],
+            'userPermissions' => fn() => $request->user()
+                ? User::getUserPermissions(Auth::user()->id)
+                : null
             // 'flash' => [
             //     'error' => fn() => $request->session()->get('error'),
             //     'success' => fn() => $request->session()->get('success'),

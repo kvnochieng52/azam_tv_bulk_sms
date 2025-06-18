@@ -18,8 +18,9 @@
             href="#"
             role="button"
             @click.prevent="toggleSidebar"
-            ><i class="fas fa-bars"></i
-          ></a>
+          >
+            <i class="fas fa-bars"></i>
+          </a>
         </li>
         <li class="nav-item d-none d-sm-inline-block">
           <a href="#" class="nav-link">Home</a>
@@ -28,6 +29,34 @@
 
       <!-- Right navbar links -->
       <ul class="navbar-nav ml-auto">
+        <!-- Balance Display -->
+        <li class="nav-item">
+          <div class="nav-link balance-display">
+            <span class="balance-label" v-if="isBalanceLoading">
+              <i class="fas fa-spinner fa-spin"></i> Loading...
+            </span>
+            <span class="balance-label" v-else-if="balanceError">
+              <i class="fas fa-exclamation-triangle text-warning"></i> Error
+            </span>
+            <span class="balance-label" v-else>
+              <span class="balance-amount"
+                ><i class="nav-icon fas fa-money-bill"></i> BALANCE:
+                {{ currency }} {{ smsCredit.toFixed(2) }}</span
+              >
+              <button
+                @click.stop="fetchBalance"
+                class="balance-refresh"
+                :disabled="isBalanceLoading"
+              >
+                <i
+                  class="fas fa-sync-alt"
+                  :class="{ 'fa-spin': isBalanceLoading }"
+                ></i>
+              </button>
+            </span>
+          </div>
+        </li>
+
         <!-- Theme Switcher -->
         <li class="nav-item">
           <a
@@ -39,6 +68,8 @@
             <i :class="darkMode ? 'fas fa-sun' : 'fas fa-moon'"></i>
           </a>
         </li>
+
+        <!-- Fullscreen Toggle -->
         <li class="nav-item">
           <a
             class="nav-link"
@@ -49,6 +80,8 @@
             <i class="fas fa-expand-arrows-alt"></i>
           </a>
         </li>
+
+        <!-- User Dropdown -->
         <li class="nav-item dropdown">
           <a
             class="nav-link"
@@ -128,12 +161,12 @@
             :class="{ 'd-none': !sidebarUserPanelOpen }"
           >
             <div class="bg-dark rounded p-2 ml-2">
-              <a
+              <!-- <a
                 href="#"
                 class="text-white d-block py-1 px-2 rounded hover-bg-light"
               >
                 <i class="fas fa-user-edit mr-2"></i> Edit Profile
-              </a>
+              </a> -->
               <a
                 href="#"
                 class="text-white d-block py-1 px-2 rounded hover-bg-light"
@@ -268,7 +301,11 @@
               </ul>
             </li>
 
-            <li class="nav-item" :class="{ 'menu-open': isMenuOpen('users') }">
+            <li
+              class="nav-item"
+              :class="{ 'menu-open': isMenuOpen('users') }"
+              v-if="isAdmin"
+            >
               <a href="#" class="nav-link" @click.prevent="toggleMenu('users')">
                 <i class="nav-icon fas fa-users"></i>
                 <p>
@@ -345,11 +382,49 @@ import { router, usePage, Link } from "@inertiajs/vue3";
 import LoadingBar from "@/Components/LoadingBar.vue";
 import ToastMessages from "@/Components/ToastMessages.vue";
 
+import axios from "axios";
+
 const props = defineProps({
   title: {
     type: String,
     required: false,
   },
+});
+
+// Balance related state
+const balance = ref("0.00 USD");
+const currency = ref("USD");
+const smsCredit = ref(0);
+const isBalanceLoading = ref(false);
+const balanceError = ref(null);
+
+const fetchBalance = async () => {
+  try {
+    isBalanceLoading.value = true;
+    balanceError.value = null;
+    const response = await axios.get(route("dashboard.balance"));
+
+    if (response.data.success) {
+      balance.value = response.data.balance;
+      currency.value = response.data.balance.split(" ")[0];
+      smsCredit.value = parseFloat(response.data.balance.split(" ")[1]);
+    } else {
+      balanceError.value = response.data.message || "Failed to fetch balance";
+    }
+  } catch (error) {
+    balanceError.value =
+      error.response?.data?.message ||
+      error.message ||
+      "Failed to fetch balance";
+    console.error("Balance fetch error:", error);
+  } finally {
+    isBalanceLoading.value = false;
+  }
+};
+
+// Fetch balance on component mount
+onMounted(() => {
+  fetchBalance();
 });
 
 // Reactive variables for UI state
@@ -364,6 +439,10 @@ const darkMode = ref(localStorage.getItem("darkMode") === "true");
 
 // Get the authenticated user from Laravel
 const user = computed(() => usePage().props.auth.user);
+const isAdmin = computed(() => {
+  const permissions = usePage().props.userPermissions;
+  return permissions && permissions.includes("user.create");
+});
 
 // Toggle sidebar collapsed/open state
 function toggleSidebar() {
@@ -790,6 +869,59 @@ body.dark-mode .dropdown-divider {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+.balance-display {
+  display: flex;
+  align-items: center;
+  padding: 0.25rem 0.5rem;
+}
+
+.balance-label {
+  display: inline-flex;
+  align-items: center;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
+  color: #495057;
+}
+
+.balance-amount {
+  font-weight: 600;
+  margin-right: 0.5rem;
+  color: #28a745; /* Green color for balance */
+}
+
+.balance-refresh {
+  background: none;
+  border: none;
+  color: #6c757d;
+  cursor: pointer;
+  padding: 0 0.25rem;
+  transition: color 0.2s;
+}
+
+.balance-refresh:hover {
+  color: #007bff;
+}
+
+.balance-refresh:disabled {
+  color: #adb5bd;
+  cursor: not-allowed;
+}
+
+.fa-spin {
+  animation: fa-spin 1s infinite linear;
+}
+
+@keyframes fa-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
   }
 }
 </style>

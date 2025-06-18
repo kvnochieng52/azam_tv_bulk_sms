@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Spatie\Permission\Models\Role;
 
@@ -19,6 +20,17 @@ class UserController extends Controller
     //         'roles' => $roles
     //     ]);
     // }
+
+
+    public function __construct()
+    {
+        $this->middleware('auth');
+
+        $this->middleware('can:user.create');
+        // $this->middleware('can:create users')->only(['create', 'store']);
+        // $this->middleware('can:edit users')->only(['edit', 'update']);
+        // $this->middleware('can:delete users')->only(['destroy']);
+    }
 
     public function index(Request $request)
     {

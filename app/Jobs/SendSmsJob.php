@@ -156,6 +156,206 @@ class SendSmsJob implements ShouldQueue
     /**
      * Process contacts from CSV file
      */
+    // private function processCsvContacts()
+    // {
+    //     // Get the proper path to the CSV file using Storage
+    //     $csvPath = storage_path('app/public/' . $this->text->csv_file_path);
+
+    //     // Log file location for debugging
+    //     Log::info("Processing CSV file at: {$csvPath}");
+
+    //     if (!file_exists($csvPath)) {
+    //         Log::error("CSV file not found: {$csvPath}");
+
+    //         // Update text status to error
+    //         $this->text->status_id = TextStatus::ERROR;
+    //         $this->text->save();
+
+    //         return [];
+    //     }
+
+    //     // Define valid column names for phone numbers
+    //     $validPhoneColumns = [
+    //         'contact',
+    //         'contacts',
+    //         'telephone',
+    //         'mobile',
+    //         'phone number',
+    //         'phone',
+    //         'mobile number'
+    //     ];
+
+    //     $contacts = [];
+    //     $batchSize = 1000; // Process in batches of 1000 to avoid memory issues
+    //     $processedRows = 0;
+    //     $totalRows = 0;
+
+    //     try {
+    //         // First pass to count total rows (this is efficient and doesn't load everything to memory)
+    //         if (($countHandle = fopen($csvPath, 'r')) !== false) {
+    //             while (fgetcsv($countHandle) !== false) {
+    //                 $totalRows++;
+    //             }
+    //             fclose($countHandle);
+    //         }
+
+    //         // Subtract 1 for the header row
+    //         $totalRows = max(0, $totalRows - 1);
+    //         Log::info("Total rows in CSV: {$totalRows}");
+
+    //         // Update text with total count
+    //         //  $this->text->contacts_count = $totalRows;
+    //         $this->text->save();
+
+    //         // Now process in batches
+    //         if (($handle = fopen($csvPath, 'r')) !== false) {
+    //             $headers = fgetcsv($handle);
+    //             if (!$headers) {
+    //                 Log::error("Invalid CSV file. No headers found.");
+    //                 fclose($handle);
+    //                 return [];
+    //             }
+
+    //             $headerMap = array_map('strtolower', array_map('trim', $headers));
+    //             $phoneColumnIndex = null;
+
+    //             foreach ($headerMap as $index => $header) {
+    //                 if (in_array($header, $validPhoneColumns)) {
+    //                     $phoneColumnIndex = $index;
+    //                     break;
+    //                 }
+    //             }
+
+    //             if ($phoneColumnIndex === null) {
+    //                 Log::error("No valid contact column found in the CSV.");
+    //                 fclose($handle);
+
+    //                 // Update text status to error
+    //                 $this->text->status_id = TextStatus::ERROR;
+    //                 $this->text->save();
+
+    //                 return [];
+    //             }
+
+    //             Log::info("Found phone column at index {$phoneColumnIndex}: {$headers[$phoneColumnIndex]}");
+
+    //             $currentBatch = [];
+    //             while (($row = fgetcsv($handle)) !== false) {
+    //                 // Make sure row has enough columns
+    //                 if (count($row) <= $phoneColumnIndex) {
+    //                     Log::warning("Skipping row - not enough columns");
+    //                     continue;
+    //                 }
+
+    //                 // Create a data map for placeholders, handling potential column count mismatch
+    //                 $contactData = [];
+    //                 foreach ($headers as $index => $header) {
+    //                     $contactData[$header] = $row[$index] ?? '';
+    //                 }
+
+    //                 $phone = trim($row[$phoneColumnIndex] ?? '');
+
+    //                 // Validate and clean phone number
+    //                 if (!empty($phone)) {
+    //                     $cleanedPhone = $this->cleanPhoneNumber($phone);
+
+    //                     // Only use numbers that are valid after cleaning
+    //                     if (!empty($cleanedPhone)) {
+    //                         $message = $this->replacePlaceholders($this->text->message, $contactData);
+    //                         $currentBatch[] = ['phone' => $cleanedPhone, 'message' => $message];
+
+    //                         // When we reach batch size, process this batch and start a new one
+    //                         if (count($currentBatch) >= $batchSize) {
+    //                             $contacts = array_merge($contacts, $currentBatch);
+    //                             $processedRows += count($currentBatch);
+
+    //                             // Send this batch immediately to avoid memory issues
+    //                             $this->sendSmsToContacts($currentBatch);
+
+    //                             // Update progress
+    //                             $progress = min(99, floor(($processedRows / $totalRows) * 100));
+    //                             Log::info("CSV Processing Progress: {$progress}% ({$processedRows}/{$totalRows})");
+
+    //                             // Reset batch
+    //                             $currentBatch = [];
+
+    //                             // Free up memory
+    //                             gc_collect_cycles();
+    //                         }
+    //                     }
+    //                 }
+    //             }
+
+    //             // Process any remaining contacts in the last batch
+    //             if (!empty($currentBatch)) {
+    //                 $contacts = array_merge($contacts, $currentBatch);
+    //                 $this->sendSmsToContacts($currentBatch);
+    //             }
+
+    //             fclose($handle);
+
+    //             // Log final count
+    //             Log::info("Total valid contacts processed: " . count($contacts));
+    //         }
+    //     } catch (\Exception $e) {
+    //         Log::error("Error processing CSV: " . $e->getMessage());
+
+    //         // Update text status to error
+    //         $this->text->status_id = TextStatus::ERROR;
+    //         $this->text->save();
+    //     }
+
+    //     return $contacts;
+    // }
+
+    /**
+     * Clean and format a phone number for Kenyan SMS sending
+     * - If starting with 0, remove 0 and add 254 prefix (0713295853 -> 254713295853)
+     * - If just the number, add 254 prefix (713295853 -> 254713295853)
+     * - If already has 254 prefix, leave as is
+     * - Remove any special characters (spaces, +, etc.)
+     *
+     * @param string $phoneNumber The phone number to clean
+     * @return string The cleaned and formatted phone number
+     */
+    // private function cleanPhoneNumber($phoneNumber)
+    // {
+    //     // Remove any non-digit characters (spaces, dashes, plus signs, etc.)
+    //     $cleaned = preg_replace('/[^0-9]/', '', $phoneNumber);
+
+    //     // Skip empty numbers
+    //     if (empty($cleaned)) {
+    //         return '';
+    //     }
+
+    //     // If already starts with 254, keep it as is
+    //     if (strpos($cleaned, '254') === 0) {
+    //         return $cleaned;
+    //     }
+
+    //     // If starts with 0, remove it first
+    //     if (strpos($cleaned, '0') === 0) {
+    //         $cleaned = substr($cleaned, 1);
+    //     }
+
+    //     // Add 254 prefix
+    //     return '254' . $cleaned;
+    // }
+
+    /**
+     * Replace placeholders in message with actual contact data
+     */
+
+
+
+
+
+    /**
+     * Process contacts from CSV file
+     */
+    /**
+     * Process contacts from CSV file
+     */
     private function processCsvContacts()
     {
         // Get the proper path to the CSV file using Storage
@@ -166,11 +366,8 @@ class SendSmsJob implements ShouldQueue
 
         if (!file_exists($csvPath)) {
             Log::error("CSV file not found: {$csvPath}");
-
-            // Update text status to error
             $this->text->status_id = TextStatus::ERROR;
             $this->text->save();
-
             return [];
         }
 
@@ -186,121 +383,168 @@ class SendSmsJob implements ShouldQueue
         ];
 
         $contacts = [];
-        $batchSize = 1000; // Process in batches of 1000 to avoid memory issues
+        $batchSize = 1000;
         $processedRows = 0;
+        $skippedRows = 0;
         $totalRows = 0;
 
         try {
-            // First pass to count total rows (this is efficient and doesn't load everything to memory)
-            if (($countHandle = fopen($csvPath, 'r')) !== false) {
-                while (fgetcsv($countHandle) !== false) {
-                    $totalRows++;
-                }
-                fclose($countHandle);
+            // Read entire file content first - this avoids file pointer issues
+            $csvContent = file_get_contents($csvPath);
+            if ($csvContent === false) {
+                Log::error("Could not read CSV file content");
+                $this->text->status_id = TextStatus::ERROR;
+                $this->text->save();
+                return [];
             }
 
-            // Subtract 1 for the header row
-            $totalRows = max(0, $totalRows - 1);
-            Log::info("Total rows in CSV: {$totalRows}");
+            // Split into lines and count
+            $lines = explode("\n", $csvContent);
+            $totalRows = count($lines) - 1; // Subtract header row
 
-            // Update text with total count
-            //  $this->text->contacts_count = $totalRows;
-            $this->text->save();
+            // Remove empty lines at the end
+            while (end($lines) === '' || end($lines) === null) {
+                array_pop($lines);
+                $totalRows--;
+            }
 
-            // Now process in batches
-            if (($handle = fopen($csvPath, 'r')) !== false) {
-                $headers = fgetcsv($handle);
-                if (!$headers) {
-                    Log::error("Invalid CSV file. No headers found.");
-                    fclose($handle);
-                    return [];
+            Log::info("Total data rows in CSV: {$totalRows}");
+
+            if (empty($lines)) {
+                Log::error("CSV file is empty");
+                $this->text->status_id = TextStatus::ERROR;
+                $this->text->save();
+                return [];
+            }
+
+            // Parse header
+            $headers = str_getcsv($lines[0]);
+            if (!$headers) {
+                Log::error("Invalid CSV file. No headers found.");
+                $this->text->status_id = TextStatus::ERROR;
+                $this->text->save();
+                return [];
+            }
+
+            // Find phone column
+            $headerMap = array_map('strtolower', array_map('trim', $headers));
+            $phoneColumnIndex = null;
+
+            foreach ($headerMap as $index => $header) {
+                if (in_array($header, $validPhoneColumns)) {
+                    $phoneColumnIndex = $index;
+                    break;
+                }
+            }
+
+            if ($phoneColumnIndex === null) {
+                Log::error("No valid contact column found. Available headers: " . implode(', ', $headers));
+                $this->text->status_id = TextStatus::ERROR;
+                $this->text->save();
+                return [];
+            }
+
+            Log::info("Found phone column at index {$phoneColumnIndex}: {$headers[$phoneColumnIndex]}");
+
+            $currentBatch = [];
+
+            // Process each data row (skip header at index 0)
+            for ($i = 1; $i < count($lines); $i++) {
+                $lineContent = trim($lines[$i]);
+
+                // Skip completely empty lines
+                if (empty($lineContent)) {
+                    Log::debug("Skipping empty line at index {$i}");
+                    $skippedRows++;
+                    continue;
                 }
 
-                $headerMap = array_map('strtolower', array_map('trim', $headers));
-                $phoneColumnIndex = null;
+                // Parse the CSV line
+                $row = str_getcsv($lineContent);
 
-                foreach ($headerMap as $index => $header) {
-                    if (in_array($header, $validPhoneColumns)) {
-                        $phoneColumnIndex = $index;
-                        break;
-                    }
+                if (!$row || count($row) <= $phoneColumnIndex) {
+                    Log::warning("Skipping row " . ($i + 1) . " - insufficient columns. Got " . count($row) . " columns, need at least " . ($phoneColumnIndex + 1));
+                    $skippedRows++;
+                    continue;
                 }
 
-                if ($phoneColumnIndex === null) {
-                    Log::error("No valid contact column found in the CSV.");
-                    fclose($handle);
-
-                    // Update text status to error
-                    $this->text->status_id = TextStatus::ERROR;
-                    $this->text->save();
-
-                    return [];
+                // Create contact data map
+                $contactData = [];
+                foreach ($headers as $index => $header) {
+                    $contactData[$header] = $row[$index] ?? '';
                 }
 
-                Log::info("Found phone column at index {$phoneColumnIndex}: {$headers[$phoneColumnIndex]}");
+                $phone = trim($row[$phoneColumnIndex] ?? '');
 
-                $currentBatch = [];
-                while (($row = fgetcsv($handle)) !== false) {
-                    // Make sure row has enough columns
-                    if (count($row) <= $phoneColumnIndex) {
-                        Log::warning("Skipping row - not enough columns");
-                        continue;
-                    }
-
-                    // Create a data map for placeholders, handling potential column count mismatch
-                    $contactData = [];
-                    foreach ($headers as $index => $header) {
-                        $contactData[$header] = $row[$index] ?? '';
-                    }
-
-                    $phone = trim($row[$phoneColumnIndex] ?? '');
-
-                    // Validate and clean phone number
-                    if (!empty($phone)) {
-                        $cleanedPhone = $this->cleanPhoneNumber($phone);
-
-                        // Only use numbers that are valid after cleaning
-                        if (!empty($cleanedPhone)) {
-                            $message = $this->replacePlaceholders($this->text->message, $contactData);
-                            $currentBatch[] = ['phone' => $cleanedPhone, 'message' => $message];
-
-                            // When we reach batch size, process this batch and start a new one
-                            if (count($currentBatch) >= $batchSize) {
-                                $contacts = array_merge($contacts, $currentBatch);
-                                $processedRows += count($currentBatch);
-
-                                // Send this batch immediately to avoid memory issues
-                                $this->sendSmsToContacts($currentBatch);
-
-                                // Update progress
-                                $progress = min(99, floor(($processedRows / $totalRows) * 100));
-                                Log::info("CSV Processing Progress: {$progress}% ({$processedRows}/{$totalRows})");
-
-                                // Reset batch
-                                $currentBatch = [];
-
-                                // Free up memory
-                                gc_collect_cycles();
-                            }
-                        }
-                    }
+                if (empty($phone)) {
+                    Log::warning("Skipping row " . ($i + 1) . " - empty phone number");
+                    $skippedRows++;
+                    continue;
                 }
 
-                // Process any remaining contacts in the last batch
-                if (!empty($currentBatch)) {
+                // Clean phone number
+                $cleanedPhone = $this->cleanPhoneNumber($phone);
+
+                if (empty($cleanedPhone)) {
+                    Log::warning("Skipping row " . ($i + 1) . " - invalid phone number: '{$phone}'");
+                    $skippedRows++;
+                    continue;
+                }
+
+                // Create message with placeholders
+                $message = $this->replacePlaceholders($this->text->message, $contactData);
+
+                // Add to current batch
+                $currentBatch[] = [
+                    'phone' => $cleanedPhone,
+                    'message' => $message,
+                    'row_number' => $i + 1,
+                    'original_phone' => $phone // Keep for debugging
+                ];
+                $processedRows++;
+
+                Log::debug("Processed row " . ($i + 1) . ": '{$phone}' -> '{$cleanedPhone}'");
+
+                // Process batch when full
+                if (count($currentBatch) >= $batchSize) {
                     $contacts = array_merge($contacts, $currentBatch);
+                    Log::info("Sending batch of " . count($currentBatch) . " contacts (rows processed so far: {$processedRows})");
                     $this->sendSmsToContacts($currentBatch);
+
+                    $progress = min(99, floor(($processedRows / $totalRows) * 100));
+                    Log::info("CSV Processing Progress: {$progress}% ({$processedRows}/{$totalRows}) - Skipped: {$skippedRows}");
+
+                    $currentBatch = [];
+                    gc_collect_cycles();
                 }
+            }
 
-                fclose($handle);
+            // Process remaining contacts
+            if (!empty($currentBatch)) {
+                $contacts = array_merge($contacts, $currentBatch);
+                Log::info("Sending final batch of " . count($currentBatch) . " contacts");
+                $this->sendSmsToContacts($currentBatch);
+            }
 
-                // Log final count
-                Log::info("Total valid contacts processed: " . count($contacts));
+            // Final statistics
+            Log::info("=== CSV Processing Complete ===");
+            Log::info("Total lines in file: " . count($lines));
+            Log::info("Header row: 1");
+            Log::info("Data rows available: {$totalRows}");
+            Log::info("Successfully processed: {$processedRows}");
+            Log::info("Skipped rows: {$skippedRows}");
+            Log::info("Total contacts created: " . count($contacts));
+
+            // This should always be true now
+            $expectedTotal = $processedRows + $skippedRows;
+            if ($expectedTotal !== $totalRows) {
+                Log::error("CRITICAL: Row count mismatch! Expected: {$totalRows}, Got: {$expectedTotal} (Processed: {$processedRows}, Skipped: {$skippedRows})");
+            } else {
+                Log::info("✓ Row count verified: All {$totalRows} rows accounted for");
             }
         } catch (\Exception $e) {
             Log::error("Error processing CSV: " . $e->getMessage());
-
-            // Update text status to error
+            Log::error("Stack trace: " . $e->getTraceAsString());
             $this->text->status_id = TextStatus::ERROR;
             $this->text->save();
         }
@@ -310,13 +554,7 @@ class SendSmsJob implements ShouldQueue
 
     /**
      * Clean and format a phone number for Kenyan SMS sending
-     * - If starting with 0, remove 0 and add 254 prefix (0713295853 -> 254713295853)
-     * - If just the number, add 254 prefix (713295853 -> 254713295853)
-     * - If already has 254 prefix, leave as is
-     * - Remove any special characters (spaces, +, etc.)
-     *
-     * @param string $phoneNumber The phone number to clean
-     * @return string The cleaned and formatted phone number
+     * Enhanced with better validation and logging
      */
     private function cleanPhoneNumber($phoneNumber)
     {
@@ -325,6 +563,14 @@ class SendSmsJob implements ShouldQueue
 
         // Skip empty numbers
         if (empty($cleaned)) {
+            Log::debug("Phone number cleaning failed - empty after cleaning: '{$phoneNumber}'");
+            return '';
+        }
+
+        // Basic length validation for Kenyan numbers
+        // Kenyan numbers should be 9 digits (without country code) or 12 digits (with 254)
+        if (strlen($cleaned) < 9 || strlen($cleaned) > 15) {
+            Log::debug("Phone number cleaning failed - invalid length: '{$phoneNumber}' -> '{$cleaned}' (length: " . strlen($cleaned) . ")");
             return '';
         }
 
@@ -338,13 +584,20 @@ class SendSmsJob implements ShouldQueue
             $cleaned = substr($cleaned, 1);
         }
 
+        // Validate that we have a reasonable number length after removing country code
+        if (strlen($cleaned) < 9 || strlen($cleaned) > 10) {
+            Log::debug("Phone number cleaning failed - invalid length after processing: '{$phoneNumber}' -> '254{$cleaned}'");
+            return '';
+        }
+
         // Add 254 prefix
         return '254' . $cleaned;
     }
-
     /**
-     * Replace placeholders in message with actual contact data
+     * Clean and format a phone number for Kenyan SMS sending
+     * Enhanced with better validation and logging
      */
+
     private function replacePlaceholders($message, $contactData)
     {
         foreach ($contactData as $key => $value) {
