@@ -562,17 +562,17 @@ class SendSmsJob implements ShouldQueue
         $cleaned = preg_replace('/[^0-9]/', '', $phoneNumber);
 
         // Skip empty numbers
-        if (empty($cleaned)) {
-            Log::debug("Phone number cleaning failed - empty after cleaning: '{$phoneNumber}'");
-            return '';
-        }
+        // if (empty($cleaned)) {
+        //     Log::debug("Phone number cleaning failed - empty after cleaning: '{$phoneNumber}'");
+        //     return '';
+        // }
 
         // Basic length validation for Kenyan numbers
         // Kenyan numbers should be 9 digits (without country code) or 12 digits (with 254)
-        if (strlen($cleaned) < 9 || strlen($cleaned) > 15) {
-            Log::debug("Phone number cleaning failed - invalid length: '{$phoneNumber}' -> '{$cleaned}' (length: " . strlen($cleaned) . ")");
-            return '';
-        }
+        // if (strlen($cleaned) < 9 || strlen($cleaned) > 15) {
+        //     Log::debug("Phone number cleaning failed - invalid length: '{$phoneNumber}' -> '{$cleaned}' (length: " . strlen($cleaned) . ")");
+        //     return '';
+        // }
 
         // If already starts with 254, keep it as is
         if (strpos($cleaned, '254') === 0) {
@@ -585,10 +585,10 @@ class SendSmsJob implements ShouldQueue
         }
 
         // Validate that we have a reasonable number length after removing country code
-        if (strlen($cleaned) < 9 || strlen($cleaned) > 10) {
-            Log::debug("Phone number cleaning failed - invalid length after processing: '{$phoneNumber}' -> '254{$cleaned}'");
-            return '';
-        }
+        // if (strlen($cleaned) < 9 || strlen($cleaned) > 10) {
+        //     Log::debug("Phone number cleaning failed - invalid length after processing: '{$phoneNumber}' -> '254{$cleaned}'");
+        //     return '';
+        // }
 
         // Add 254 prefix
         return '254' . $cleaned;
