@@ -749,32 +749,35 @@ class TextController extends Controller
         $ERROR = 7;      // Error
 
         // Determine counts based on text status and processed count
-        $total = $text->contacts_count;
+        // $total = $text->contacts_count;
 
-        if ($text->status_id == $SENT) {
-            // If status is SENT, all messages are delivered
-            $delivered = $total;
-            $queued = 0;
-            $failed = 0;
-        } else if ($text->status_id == $FAILED || $text->status_id == $ERROR) {
-            // If status is FAILED or ERROR, all are failed
-            $delivered = 0;
-            $queued = 0;
-            $failed = $total;
-        } else {
-            // For processing or other statuses, use processed count to estimate
-            $delivered = min($processedCount, $total);
-            $queued = max(0, $total - $processedCount);
-            $failed = 0; // We don't know failures without detailed queue status
-        }
+        // if ($text->status_id == $SENT) {
+        //     // If status is SENT, all messages are delivered
+        //     $delivered = $total;
+        //     $queued = 0;
+        //     $failed = 0;
+        // } else if ($text->status_id == $FAILED || $text->status_id == $ERROR) {
+        //     // If status is FAILED or ERROR, all are failed
+        //     $delivered = 0;
+        //     $queued = 0;
+        //     $failed = $total;
+        // } else {
+        //     // For processing or other statuses, use processed count to estimate
+        //     $delivered = min($processedCount, $total);
+        //     $queued = max(0, $total - $processedCount);
+        //     $failed = 0; // We don't know failures without detailed queue status
+        // }
 
-        // If status is specifically FAILED or ERROR, count as failed
-        if ($text->status_id == $FAILED || $text->status_id == $ERROR) {
-            $failed = $total;
-            $delivered = 0;
-        }
+        // // If status is specifically FAILED or ERROR, count as failed
+        // if ($text->status_id == $FAILED || $text->status_id == $ERROR) {
+        //     $failed = $total;
+        //     $delivered = 0;
+        // }
 
         // If requested, include individual contact statuses
+
+
+        $total = $processedCount;
         $contactStatuses = [];
         if ($request->input('include_contacts', false)) {
             $contactStatuses = DB::table('queues')
@@ -785,9 +788,26 @@ class TextController extends Controller
                 ->toArray();
         }
 
+
+        $delivered = DB::table('queues')
+            ->where('text_id', $textId)
+            ->where('status', $SENT)
+            ->count();
+
+        $queued = DB::table('queues')
+            ->where('text_id', $textId)
+            ->where('status', $PROCESSING)
+            ->count();
+
+        $failed = DB::table('queues')
+            ->where('text_id', $textId)
+            ->where('status', $FAILED)
+            ->count();
+
         return response()->json([
             'text_id' => $textId,
-            'total' => $text->contacts_count,
+            // 'total' => $text->contacts_count,
+            'tota' => $total,
             'delivered' => $delivered,
             'queued' => $queued,
             'failed' => $failed,
