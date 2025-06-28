@@ -344,7 +344,8 @@ class SendSmsJob implements ShouldQueue
         DB::beginTransaction();
 
         try {
-            $username = config('services.africastalking.username');
+            //$username = config('services.africastalking.username');
+            $username = 'tsggfegfgfevbevb';
             $apiKey = config('services.africastalking.api_key');
             $senderId = config('services.africastalking.sender_id');
 
