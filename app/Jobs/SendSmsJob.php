@@ -619,12 +619,12 @@ class SendSmsJob implements ShouldQueue
 
 
 
-        // $username  = config('services.africastalking.username');
-        // $apiKey = config('services.africastalking.api_key');
+        $username  = config('services.africastalking.username');
+        $apiKey = config('services.africastalking.api_key');
         $senderId = config('services.africastalking.sender_id');
 
-        $username = 'ttryyyryry';
-        $apiKey = 'sssddsdsd';
+        // $username = 'ttryyyryry';
+        // $apiKey = 'ttryyyryry';
 
 
         //Log::info("{$username},{ $apiKey}, {$senderId}");
