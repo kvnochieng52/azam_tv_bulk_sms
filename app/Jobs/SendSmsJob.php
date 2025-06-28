@@ -327,13 +327,17 @@ class SendSmsJob implements ShouldQueue
         $uniqueContacts = [];
         $seenPhones = [];
 
-        foreach ($contacts as $contact) {
-            $phone = $contact['phone'];
-            if (!isset($seenPhones[$phone])) {
-                $seenPhones[$phone] = true;
-                $uniqueContacts[] = $contact;
-            }
-        }
+        $uniqueContacts[] = $contacts;
+
+        // foreach ($contacts as $contact) {
+        //     $phone = $contact['phone'];
+
+        //     $uniqueContacts[] = $contact;
+        //     // if (!isset($seenPhones[$phone])) {
+        //     //     $seenPhones[$phone] = true;
+
+        //     // }
+        // }
 
         if (count($uniqueContacts) < count($contacts)) {
             Log::info("Removed " . (count($contacts) - count($uniqueContacts)) . " duplicate phone numbers");
