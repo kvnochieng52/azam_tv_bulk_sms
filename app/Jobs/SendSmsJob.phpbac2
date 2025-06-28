@@ -25,7 +25,6 @@ class SendSmsJob implements ShouldQueue
     public $tries = 3;
     public $timeout = 3600;
     protected $text;
-    protected $processedPhones = []; // Track processed phone numbers within this job
 
     public function __construct(Text $text)
     {
@@ -88,18 +87,9 @@ class SendSmsJob implements ShouldQueue
 
     private function processManualContacts()
     {
-        $contacts = [];
-        $inputContacts = explode(',', $this->text->recepient_contacts);
-
-        foreach ($inputContacts as $contact) {
-            $phone = $this->cleanPhoneNumber(trim($contact));
-            if ($phone && !isset($this->processedPhones[$phone])) {
-                $contacts[] = ['phone' => $phone, 'message' => $this->text->message];
-                $this->processedPhones[$phone] = true;
-            }
-        }
-
-        return $contacts;
+        return array_map(function ($contact) {
+            return ['phone' => $this->cleanPhoneNumber(trim($contact)), 'message' => $this->text->message];
+        }, explode(',', $this->text->recepient_contacts));
     }
 
     private function processSavedContacts()
@@ -124,9 +114,8 @@ class SendSmsJob implements ShouldQueue
                         foreach ($phoneNumbers as $record) {
                             if (!empty($record->telephone)) {
                                 $phone = $this->cleanPhoneNumber($record->telephone);
-                                if ($phone && !isset($this->processedPhones[$phone])) {
+                                if ($phone) {
                                     $contacts[] = ['phone' => $phone, 'message' => $this->text->message];
-                                    $this->processedPhones[$phone] = true;
                                 }
                             }
                         }
@@ -266,7 +255,6 @@ class SendSmsJob implements ShouldQueue
 
                 $message = $this->replacePlaceholders($this->text->message, $contactData);
 
-                // For CSV, we don't check for duplicates - process all rows
                 $currentBatch[] = [
                     'phone' => $cleanedPhone,
                     'message' => $message,
@@ -335,11 +323,35 @@ class SendSmsJob implements ShouldQueue
             return;
         }
 
+        // Deduplicate contacts before processing
+        $uniqueContacts = [];
+        $seenPhones = [];
+
+        $uniqueContacts[] = $contacts;
+
+        // foreach ($contacts as $contact) {
+        //     $phone = $contact['phone'];
+
+        //     $uniqueContacts[] = $contact;
+        //     // if (!isset($seenPhones[$phone])) {
+        //     //     $seenPhones[$phone] = true;
+
+        //     // }
+        // }
+
+        if (count($uniqueContacts) < count($contacts)) {
+            Log::info("Removed " . (count($contacts) - count($uniqueContacts)) . " duplicate phone numbers");
+        }
+
+        $contacts = $uniqueContacts;
+
         DB::beginTransaction();
 
         try {
-            $username = config('services.africastalking.username');
-            $apiKey = config('services.africastalking.api_key');
+            //$username = config('services.africastalking.username');
+            $username = 'tsggfegfgfevbevb';
+            //$apiKey = config('services.africastalking.api_key');
+            $apiKey = 'fegfgfevbevb';
             $senderId = config('services.africastalking.sender_id');
 
             $AT = new AfricasTalking($username, $apiKey);
@@ -356,8 +368,29 @@ class SendSmsJob implements ShouldQueue
             $contactBatches = array_chunk($contacts, $smsBatchSize);
 
             foreach ($contactBatches as $batchIndex => $contactBatch) {
+                // Filter out already processed numbers
+                // $phones = array_column($contactBatch, 'phone');
+                // $existing = Queue::where('text_id', $this->text->id)
+                // ->whereIn('recipient', $phones)
+                // ->pluck('recipient')
+                // ->toArray();
+
+                $existing = [];
+
+                $filteredBatch = array_filter($contactBatch, function ($contact) use ($existing) {
+                    return !in_array($contact['phone'], $existing);
+                });
+
+                if (count($filteredBatch) < count($contactBatch)) {
+                    Log::info("Skipping " . count($contactBatch) - count($filteredBatch) . " already processed numbers");
+                }
+
+                if (empty($filteredBatch)) {
+                    continue;
+                }
+
                 $messageGroups = [];
-                foreach ($contactBatch as $contact) {
+                foreach ($filteredBatch as $contact) {
                     $messageGroups[$contact['message']][] = $contact['phone'];
                 }
 
