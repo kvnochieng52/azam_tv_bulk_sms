@@ -18,7 +18,7 @@ use Illuminate\Support\Facades\DB;
 use AfricasTalking\SDK\AfricasTalking;
 use Illuminate\Bus\Batchable;
 
-class SendSmsJobBac3 implements ShouldQueue
+class SendSmsJob implements ShouldQueue
 {
     use Batchable, Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
