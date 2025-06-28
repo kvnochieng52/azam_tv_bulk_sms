@@ -346,7 +346,8 @@ class SendSmsJob implements ShouldQueue
         try {
             //$username = config('services.africastalking.username');
             $username = 'tsggfegfgfevbevb';
-            $apiKey = config('services.africastalking.api_key');
+            //$apiKey = config('services.africastalking.api_key');
+            $apiKey = 'fegfgfevbevb';
             $senderId = config('services.africastalking.sender_id');
 
             $AT = new AfricasTalking($username, $apiKey);
