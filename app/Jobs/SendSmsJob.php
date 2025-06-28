@@ -365,11 +365,13 @@ class SendSmsJob implements ShouldQueue
 
             foreach ($contactBatches as $batchIndex => $contactBatch) {
                 // Filter out already processed numbers
-                $phones = array_column($contactBatch, 'phone');
-                $existing = Queue::where('text_id', $this->text->id)
-                    ->whereIn('recipient', $phones)
-                    ->pluck('recipient')
-                    ->toArray();
+                // $phones = array_column($contactBatch, 'phone');
+                // $existing = Queue::where('text_id', $this->text->id)
+                // ->whereIn('recipient', $phones)
+                // ->pluck('recipient')
+                // ->toArray();
+
+                $existing = [];
 
                 $filteredBatch = array_filter($contactBatch, function ($contact) use ($existing) {
                     return !in_array($contact['phone'], $existing);
