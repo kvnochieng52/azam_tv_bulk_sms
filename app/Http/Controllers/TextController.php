@@ -872,14 +872,29 @@ class TextController extends Controller
             // Use the message from the queue item, not from the text
             $message = $item->message ?? $text->message;
 
+            // Parse the JSON response to extract cost, status, and statusCode
+            $cost = 'N/A';
+            $apiResponse = 'N/A';
+            $statusCode = 'N/A';
+
+            if (!empty($item->response)) {
+                $responseData = json_decode($item->response, true);
+                if (json_last_error() === JSON_ERROR_NONE && is_array($responseData)) {
+                    $cost = $responseData['cost'] ?? 'N/A';
+                    $apiResponse = $responseData['status'] ?? 'N/A';
+                    $statusCode = $responseData['statusCode'] ?? 'N/A';
+                }
+            }
+
             $smsData[] = [
                 'telephone' => $item->recipient,
                 'message' => $message,
                 'date/time' => date('Y-m-d H:i:s', strtotime($item->created_at)),
                 'status' => $statusName,
-                'response' => $item->response ?? 'Unknown',
-                'created_by' => $item->created_by_name ?? 'System'
-
+                'created_by' => $item->created_by_name ?? 'System',
+                'cost' => $cost,
+                'api_response' => $apiResponse,
+                'status_code' => $statusCode
             ];
         }
 
@@ -906,8 +921,8 @@ class TextController extends Controller
         // Add a blank line
         fputcsv($file, []);
 
-        // Add column headers
-        fputcsv($file, ['telephone', 'message', 'date/time', 'status', 'created_by', 'response']);
+        // Add column headers (removed 'response', added 'cost', 'api_response', 'status_code')
+        fputcsv($file, ['telephone', 'message', 'date/time', 'status', 'created_by', 'cost', 'api_response', 'status_code']);
 
         // Add data rows
         foreach ($smsData as $row) {
@@ -917,8 +932,9 @@ class TextController extends Controller
                 $row['date/time'],
                 $row['status'],
                 $row['created_by'],
-                $row['response']
-
+                $row['cost'],
+                $row['api_response'],
+                $row['status_code']
             ]);
         }
 
@@ -939,7 +955,6 @@ class TextController extends Controller
             'Content-Type' => 'text/csv',
         ]);
     }
-
     /**
      * Show the form for editing the specified resource.
      */
