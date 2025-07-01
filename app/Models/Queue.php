@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 class Queue extends Model
 {
     use HasFactory;
-    
+
     /**
      * The attributes that are mass assignable.
      *
@@ -17,12 +17,14 @@ class Queue extends Model
     protected $fillable = [
         'text_id',
         'message',
+        'recipient',
         'status',
         'reason',
+        'response',
         'created_by',
         'updated_by',
     ];
-    
+
     /**
      * The attributes that should be cast.
      *
@@ -34,7 +36,7 @@ class Queue extends Model
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
-    
+
     /**
      * Get the text that owns the queue.
      */
@@ -42,7 +44,7 @@ class Queue extends Model
     {
         return $this->belongsTo(Text::class);
     }
-    
+
     /**
      * Get the status associated with the queue.
      */
@@ -50,7 +52,7 @@ class Queue extends Model
     {
         return $this->belongsTo(TextStatus::class, 'status', 'id');
     }
-    
+
     /**
      * Get the user who created the queue.
      */
@@ -58,7 +60,7 @@ class Queue extends Model
     {
         return $this->belongsTo(User::class, 'created_by', 'id');
     }
-    
+
     /**
      * Get the user who last updated the queue.
      */

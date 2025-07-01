@@ -877,7 +877,9 @@ class TextController extends Controller
                 'message' => $message,
                 'date/time' => date('Y-m-d H:i:s', strtotime($item->created_at)),
                 'status' => $statusName,
+                'response' => $item->response ?? 'Unknown',
                 'created_by' => $item->created_by_name ?? 'System'
+
             ];
         }
 
