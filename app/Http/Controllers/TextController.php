@@ -907,7 +907,7 @@ class TextController extends Controller
         fputcsv($file, []);
 
         // Add column headers
-        fputcsv($file, ['telephone', 'message', 'date/time', 'status', 'created_by']);
+        fputcsv($file, ['telephone', 'message', 'date/time', 'status', 'created_by', 'response']);
 
         // Add data rows
         foreach ($smsData as $row) {
@@ -916,7 +916,9 @@ class TextController extends Controller
                 $row['message'],
                 $row['date/time'],
                 $row['status'],
-                $row['created_by']
+                $row['created_by'],
+                $row['response']
+
             ]);
         }
 
