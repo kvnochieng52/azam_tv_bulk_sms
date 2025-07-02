@@ -1,0 +1,1 @@
+import{N as s}from"./app-CDjddlxD.js";const t=s(),e={success(o){t.success(o,{timeout:5e3})},error(o){t.error(o,{timeout:7e3})},warning(o){t.warning(o,{timeout:5e3})},info(o){t.info(o,{timeout:5e3})}};export{e as T};
