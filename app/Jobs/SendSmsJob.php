@@ -27,7 +27,7 @@ class SendSmsJob implements ShouldQueue
      *
      * @var int
      */
-    public $tries = 3;
+    public $tries = 1;
 
     /**
      * The number of seconds the job can run before timing out.
@@ -97,12 +97,17 @@ class SendSmsJob implements ShouldQueue
     {
         $contacts = [];
         $phoneNumbers = array_map('trim', explode(',', $this->text->recepient_contacts));
+        $seenCombinations = []; // Track phone+message combinations
 
         foreach ($phoneNumbers as $phone) {
             if (!empty($phone)) {
                 $cleanedPhone = $this->cleanPhoneNumber($phone);
                 if (!empty($cleanedPhone)) {
-                    $contacts[] = ['phone' => $cleanedPhone, 'message' => $this->text->message];
+                    $combination = $cleanedPhone . '|' . $this->text->message;
+                    if (!in_array($combination, $seenCombinations)) {
+                        $contacts[] = ['phone' => $cleanedPhone, 'message' => $this->text->message];
+                        $seenCombinations[] = $combination;
+                    }
                 }
             }
         }
@@ -120,6 +125,7 @@ class SendSmsJob implements ShouldQueue
             Log::info("Processing Saved Contacts: " . json_encode($contactIds));
 
             $contacts = [];
+            $seenCombinations = []; // Track phone+message combinations across all contact lists
             $batchSize = 1000;
 
             // Get the contact groups selected by the user
@@ -133,15 +139,19 @@ class SendSmsJob implements ShouldQueue
                 // Process contact lists in chunks to avoid memory issues
                 $group->contactLists()
                     ->select('telephone')
-                    ->chunk($batchSize, function ($phoneNumbers) use (&$contacts) {
+                    ->chunk($batchSize, function ($phoneNumbers) use (&$contacts, &$seenCombinations) {
                         foreach ($phoneNumbers as $record) {
                             if (!empty($record->telephone)) {
                                 $cleanedPhone = $this->cleanPhoneNumber($record->telephone);
                                 if (!empty($cleanedPhone)) {
-                                    $contacts[] = [
-                                        'phone' => $cleanedPhone,
-                                        'message' => $this->text->message
-                                    ];
+                                    $combination = $cleanedPhone . '|' . $this->text->message;
+                                    if (!in_array($combination, $seenCombinations)) {
+                                        $contacts[] = [
+                                            'phone' => $cleanedPhone,
+                                            'message' => $this->text->message
+                                        ];
+                                        $seenCombinations[] = $combination;
+                                    }
                                 }
                             }
                         }
@@ -149,7 +159,7 @@ class SendSmsJob implements ShouldQueue
                     });
             }
 
-            Log::info("Total contacts processed: " . count($contacts));
+            Log::info("Total unique contacts processed: " . count($contacts));
             $this->text->save();
 
             return $contacts;
@@ -190,9 +200,11 @@ class SendSmsJob implements ShouldQueue
         ];
 
         $contacts = [];
+        $seenCombinations = []; // Track phone+message combinations in CSV
         $batchSize = 1000;
         $processedRows = 0;
         $skippedRows = 0;
+        $duplicateRows = 0;
         $totalRows = 0;
 
         try {
@@ -293,7 +305,18 @@ class SendSmsJob implements ShouldQueue
                     continue;
                 }
 
+                $seenCombinations[] = $cleanedPhone;
                 $message = $this->replacePlaceholders($this->text->message, $contactData);
+
+                // Check for duplicates within CSV (phone + message combination)
+                $combination = $cleanedPhone . '|' . $message;
+                if (in_array($combination, $seenCombinations)) {
+                    Log::warning("Skipping row " . ($i + 1) . " - duplicate phone+message combination: '{$cleanedPhone}' with message hash: " . substr(md5($message), 0, 8));
+                    $duplicateRows++;
+                    continue;
+                }
+
+                $seenCombinations[] = $combination;
 
                 $currentBatch[] = [
                     'phone' => $cleanedPhone,
@@ -309,7 +332,7 @@ class SendSmsJob implements ShouldQueue
                     $this->sendSmsToContacts($currentBatch);
 
                     $progress = min(99, floor(($processedRows / $totalRows) * 100));
-                    Log::info("CSV Processing Progress: {$progress}% ({$processedRows}/{$totalRows}) - Skipped: {$skippedRows}");
+                    Log::info("CSV Processing Progress: {$progress}% ({$processedRows}/{$totalRows}) - Skipped: {$skippedRows} - Duplicates: {$duplicateRows}");
 
                     $currentBatch = [];
                     gc_collect_cycles();
@@ -328,6 +351,7 @@ class SendSmsJob implements ShouldQueue
             Log::info("Data rows available: {$totalRows}");
             Log::info("Successfully processed: {$processedRows}");
             Log::info("Skipped rows: {$skippedRows}");
+            Log::info("Duplicate rows: {$duplicateRows}");
         } catch (\Exception $e) {
             Log::error("Error processing CSV: " . $e->getMessage());
             Log::error("Stack trace: " . $e->getTraceAsString());
@@ -375,7 +399,7 @@ class SendSmsJob implements ShouldQueue
     }
 
     /**
-     * Send SMS to contacts with duplicate prevention using database transactions
+     * Send SMS to contacts with improved duplicate prevention
      */
     private function sendSmsToContacts(array $contacts)
     {
@@ -400,34 +424,22 @@ class SendSmsJob implements ShouldQueue
 
             $successCount = 0;
             $failCount = 0;
+            $duplicateCount = 0;
             $smsBatchSize = 100;
-            $contactBatches = array_chunk($contacts, $smsBatchSize);
+
+            // First, remove duplicates from the current batch and check against database
+            $uniqueContacts = $this->filterUniqueContacts($contacts, $duplicateCount);
+
+            if (empty($uniqueContacts)) {
+                Log::info("All contacts were duplicates or already processed");
+                return;
+            }
+
+            $contactBatches = array_chunk($uniqueContacts, $smsBatchSize);
 
             foreach ($contactBatches as $batchIndex => $contactBatch) {
-                // Use database transaction for each batch to prevent duplicate queue entries
+                // Use database transaction for each batch
                 DB::transaction(function () use ($contactBatch, $batchIndex, $sms, $senderId, &$successCount, &$failCount) {
-                    // Check if any contacts in this batch were already processed
-                    $phonesInBatch = array_column($contactBatch, 'phone');
-
-                    // Get already processed contacts for this text campaign
-                    $alreadyProcessed = Queue::where('text_id', $this->text->id)
-                        ->whereIn('recipient', $phonesInBatch)
-                        ->pluck('recipient')
-                        ->toArray();
-
-                    if (!empty($alreadyProcessed)) {
-                        Log::info("Batch {$batchIndex} - Skipping " . count($alreadyProcessed) . " already processed contacts");
-
-                        // Filter out already processed contacts
-                        $contactBatch = array_filter($contactBatch, function ($contact) use ($alreadyProcessed) {
-                            return !in_array($contact['phone'], $alreadyProcessed);
-                        });
-                    }
-
-                    if (empty($contactBatch)) {
-                        Log::info("Batch {$batchIndex} - All contacts already processed, skipping");
-                        return;
-                    }
 
                     // Group by message for efficiency
                     $messageGroups = [];
@@ -512,20 +524,28 @@ class SendSmsJob implements ShouldQueue
                             }
                         }
 
-                        // Insert queue records within the transaction
+                        // Insert all queue records at once using bulk insert
                         if (!empty($queueRecords)) {
-                            // Use insert ignore or upsert to prevent duplicate key errors
-                            foreach ($queueRecords as $record) {
-                                // Check one more time if this exact record exists
-                                $exists = Queue::where('text_id', $record['text_id'])
-                                    ->where('recipient', $record['recipient'])
-                                    ->where('message', $record['message'])
-                                    ->exists();
+                            try {
+                                Queue::insert($queueRecords);
+                                Log::info("Successfully logged " . count($queueRecords) . " queue records for batch {$batchIndex}");
+                            } catch (\Exception $e) {
+                                Log::error("Failed to insert queue records for batch {$batchIndex}: " . $e->getMessage());
 
-                                if (!$exists) {
-                                    Queue::create($record);
-                                } else {
-                                    Log::debug("Queue record already exists for text_id: {$record['text_id']}, recipient: {$record['recipient']}");
+                                // Fallback: insert one by one with duplicate checking
+                                foreach ($queueRecords as $record) {
+                                    try {
+                                        Queue::updateOrCreate(
+                                            [
+                                                'text_id' => $record['text_id'],
+                                                'recipient' => $record['recipient'],
+                                                'message' => $record['message']
+                                            ],
+                                            $record
+                                        );
+                                    } catch (\Exception $individualError) {
+                                        Log::error("Failed to insert individual queue record: " . $individualError->getMessage());
+                                    }
                                 }
                             }
                         }
@@ -541,7 +561,7 @@ class SendSmsJob implements ShouldQueue
             }
 
             // Final status update in transaction
-            DB::transaction(function () use ($successCount, $failCount) {
+            DB::transaction(function () use ($successCount, $failCount, $duplicateCount) {
                 // Refresh the model to get latest status
                 $this->text->refresh();
 
@@ -556,7 +576,7 @@ class SendSmsJob implements ShouldQueue
                 $this->text->save();
             });
 
-            Log::info("SMS Campaign completed - Success: {$successCount}, Failed: {$failCount}");
+            Log::info("SMS Campaign completed - Success: {$successCount}, Failed: {$failCount}, Duplicates Skipped: {$duplicateCount}");
         } catch (\Exception $e) {
             Log::error("Failed to initialize SMS sending: " . $e->getMessage());
 
@@ -566,5 +586,52 @@ class SendSmsJob implements ShouldQueue
                 $this->text->save();
             });
         }
+    }
+
+    /**
+     * Filter unique contacts and remove duplicates based on phone+message combination
+     */
+    private function filterUniqueContacts(array $contacts, &$duplicateCount)
+    {
+        $uniqueContacts = [];
+        $seenInCurrentBatch = [];
+        $duplicateCount = 0;
+
+        // First, get all phone+message combinations for this text campaign that have already been processed
+        $alreadyProcessedCombinations = Queue::where('text_id', $this->text->id)
+            ->get(['recipient', 'message'])
+            ->map(function ($item) {
+                return $item->recipient . '|' . $item->message;
+            })
+            ->toArray();
+
+        Log::info("Found " . count($alreadyProcessedCombinations) . " already processed phone+message combinations for text ID: {$this->text->id}");
+
+        foreach ($contacts as $contact) {
+            $phone = $contact['phone'];
+            $message = $contact['message'];
+            $combination = $phone . '|' . $message;
+
+            // Skip if already processed in database
+            if (in_array($combination, $alreadyProcessedCombinations)) {
+                Log::debug("Skipping already processed combination: {$phone} with message hash: " . substr(md5($message), 0, 8));
+                $duplicateCount++;
+                continue;
+            }
+
+            // Skip if already seen in current batch
+            if (in_array($combination, $seenInCurrentBatch)) {
+                Log::debug("Skipping duplicate in current batch: {$phone} with message hash: " . substr(md5($message), 0, 8));
+                $duplicateCount++;
+                continue;
+            }
+
+            $seenInCurrentBatch[] = $combination;
+            $uniqueContacts[] = $contact;
+        }
+
+        Log::info("Filtered " . count($uniqueContacts) . " unique contacts from " . count($contacts) . " total contacts. Duplicates: {$duplicateCount}");
+
+        return $uniqueContacts;
     }
 }
