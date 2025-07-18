@@ -48,36 +48,50 @@ class SendSmsJob implements ShouldQueue
         try {
             Log::info("Starting SMS Campaign ID: {$this->text->id} - Contact Type: {$this->text->contact_type}");
 
-            // Update status to processing
-            $this->text->status_id = TextStatus::PROCESSING;
-            $this->text->save();
+            // Check if this job is already being processed to prevent duplicate execution
+            $lockKey = "sms_job_lock_{$this->text->id}";
+            $lock = cache()->lock($lockKey, 3600); // 1 hour lock
 
-            // Process based on contact type
-            switch ($this->text->contact_type) {
-                case 'manual':
-                    $contacts = $this->processManualContacts();
-                    $this->sendSmsToContacts($contacts);
-                    break;
-
-                case 'list':
-                    $contacts = $this->processSavedContacts();
-                    $this->sendSmsToContacts($contacts);
-                    break;
-
-                case 'csv':
-                    // For CSV files, process and send in chunks to avoid memory issues
-                    $this->processCsvContacts();
-                    break;
-
-                default:
-                    Log::error("Unknown contact type: {$this->text->contact_type}");
-                    $this->text->status_id = TextStatus::ERROR;
-                    $this->text->save();
+            if (!$lock->get()) {
+                Log::warning("SMS Campaign ID: {$this->text->id} is already being processed. Skipping.");
+                return;
             }
 
-            Log::info("Completed SMS Campaign ID: {$this->text->id}");
+            try {
+                // Update status to processing
+                $this->text->status_id = TextStatus::PROCESSING;
+                $this->text->save();
+
+                // Process based on contact type
+                switch ($this->text->contact_type) {
+                    case 'manual':
+                        $contacts = $this->processManualContacts();
+                        $this->sendSmsToContacts($contacts);
+                        break;
+
+                    case 'list':
+                        $contacts = $this->processSavedContacts();
+                        $this->sendSmsToContacts($contacts);
+                        break;
+
+                    case 'csv':
+                        // For CSV files, process and send in chunks to avoid memory issues
+                        $this->processCsvContacts();
+                        break;
+
+                    default:
+                        Log::error("Unknown contact type: {$this->text->contact_type}");
+                        $this->text->status_id = TextStatus::ERROR;
+                        $this->text->save();
+                }
+
+                Log::info("Completed SMS Campaign ID: {$this->text->id}");
+            } finally {
+                $lock->release();
+            }
         } catch (\Exception $e) {
             Log::error("Error in SMS Job: " . $e->getMessage());
+            Log::error("Stack trace: " . $e->getTraceAsString());
 
             // Update status to error
             $this->text->status_id = TextStatus::ERROR;
@@ -199,13 +213,14 @@ class SendSmsJob implements ShouldQueue
             'mobile number'
         ];
 
-        $contacts = [];
-        $seenCombinations = []; // Track phone+message combinations in CSV
-        $batchSize = 1000;
+        $batchSize = 500; // Reduced batch size for better memory management
         $processedRows = 0;
         $skippedRows = 0;
         $duplicateRows = 0;
         $totalRows = 0;
+
+        // Global tracking for the entire CSV processing
+        $globalSeenCombinations = [];
 
         try {
             $csvContent = file_get_contents($csvPath);
@@ -305,18 +320,17 @@ class SendSmsJob implements ShouldQueue
                     continue;
                 }
 
-                $seenCombinations[] = $cleanedPhone;
                 $message = $this->replacePlaceholders($this->text->message, $contactData);
 
                 // Check for duplicates within CSV (phone + message combination)
                 $combination = $cleanedPhone . '|' . $message;
-                if (in_array($combination, $seenCombinations)) {
+                if (in_array($combination, $globalSeenCombinations)) {
                     Log::warning("Skipping row " . ($i + 1) . " - duplicate phone+message combination: '{$cleanedPhone}' with message hash: " . substr(md5($message), 0, 8));
                     $duplicateRows++;
                     continue;
                 }
 
-                $seenCombinations[] = $combination;
+                $globalSeenCombinations[] = $combination;
 
                 $currentBatch[] = [
                     'phone' => $cleanedPhone,
@@ -425,7 +439,7 @@ class SendSmsJob implements ShouldQueue
             $successCount = 0;
             $failCount = 0;
             $duplicateCount = 0;
-            $smsBatchSize = 100;
+            $smsBatchSize = 50; // Reduced batch size for better control
 
             // First, remove duplicates from the current batch and check against database
             $uniqueContacts = $this->filterUniqueContacts($contacts, $duplicateCount);
@@ -435,79 +449,69 @@ class SendSmsJob implements ShouldQueue
                 return;
             }
 
+            Log::info("After filtering duplicates: " . count($uniqueContacts) . " unique contacts remaining");
+
             $contactBatches = array_chunk($uniqueContacts, $smsBatchSize);
 
             foreach ($contactBatches as $batchIndex => $contactBatch) {
-                // Use database transaction for each batch
-                DB::transaction(function () use ($contactBatch, $batchIndex, $sms, $senderId, &$successCount, &$failCount) {
+                Log::info("Processing batch " . ($batchIndex + 1) . " of " . count($contactBatches) . " with " . count($contactBatch) . " contacts");
 
-                    // Group by message for efficiency
-                    $messageGroups = [];
-                    foreach ($contactBatch as $contact) {
-                        $messageGroups[$contact['message']][] = $contact['phone'];
-                    }
+                // Group by message for efficiency
+                $messageGroups = [];
+                foreach ($contactBatch as $contact) {
+                    $messageGroups[$contact['message']][] = $contact['phone'];
+                }
 
-                    foreach ($messageGroups as $message => $phones) {
+                foreach ($messageGroups as $message => $phones) {
+                    try {
+                        // Log each phone number being processed
+                        Log::info("Sending message to phones: " . implode(', ', $phones));
+
+                        // Send the message to this group
+                        $response = $sms->send([
+                            'to'      => implode(',', $phones),
+                            'message' => $message,
+                            'from'    => $senderId,
+                        ]);
+
+                        Log::info("Batch " . ($batchIndex + 1) . " - API call sent to " . count($phones) . " recipients");
+                        $responseArray = json_decode(json_encode($response), true);
+
+                        Log::info("API Response: " . json_encode($responseArray));
+
                         $queueRecords = [];
 
-                        try {
-                            // Send the message to this group
-                            $response = $sms->send([
-                                'to'      => implode(',', $phones),
-                                'message' => $message,
-                                'from'    => $senderId,
-                            ]);
+                        // Process API response
+                        if (isset($responseArray['data']['SMSMessageData']['Recipients'])) {
+                            $recipients = $responseArray['data']['SMSMessageData']['Recipients'];
 
-                            Log::info("Batch {$batchIndex} - API call sent to " . count($phones) . " recipients");
-                            $responseArray = json_decode(json_encode($response), true);
+                            foreach ($recipients as $recipient) {
+                                $status = $recipient['status'] === 'Success' ? TextStatus::SENT : TextStatus::FAILED;
+                                $phone = $recipient['number'];
 
-                            // Process API response
-                            if (isset($responseArray['data']['SMSMessageData']['Recipients'])) {
-                                $recipients = $responseArray['data']['SMSMessageData']['Recipients'];
+                                Log::info("Individual recipient result - Phone: {$phone}, Status: {$recipient['status']}");
 
-                                foreach ($recipients as $recipient) {
-                                    $status = $recipient['status'] === 'Success' ? TextStatus::SENT : TextStatus::FAILED;
-
-                                    if ($status === TextStatus::SENT) {
-                                        $successCount++;
-                                    } else {
-                                        $failCount++;
-                                    }
-
-                                    $queueRecords[] = [
-                                        'text_id' => $this->text->id,
-                                        'message' => $message,
-                                        'recipient' => $recipient['number'],
-                                        'status' => $status,
-                                        'response' => json_encode($recipient),
-                                        'created_by' => $this->text->created_by,
-                                        'updated_by' => $this->text->updated_by,
-                                        'created_at' => now(),
-                                        'updated_at' => now(),
-                                    ];
-                                }
-                            } else {
-                                // If API response format is unexpected, mark all as failed
-                                Log::warning("Unexpected API response format for batch {$batchIndex}");
-                                foreach ($phones as $phone) {
+                                if ($status === TextStatus::SENT) {
+                                    $successCount++;
+                                } else {
                                     $failCount++;
-                                    $queueRecords[] = [
-                                        'text_id' => $this->text->id,
-                                        'message' => $message,
-                                        'recipient' => $phone,
-                                        'status' => TextStatus::FAILED,
-                                        'response' => json_encode(['error' => 'Unexpected API response format']),
-                                        'created_by' => $this->text->created_by,
-                                        'updated_by' => $this->text->updated_by,
-                                        'created_at' => now(),
-                                        'updated_at' => now(),
-                                    ];
                                 }
-                            }
-                        } catch (\Exception $e) {
-                            Log::error("Failed to send SMS batch {$batchIndex}: " . $e->getMessage());
 
-                            // Mark all phones in this group as failed
+                                $queueRecords[] = [
+                                    'text_id' => $this->text->id,
+                                    'message' => $message,
+                                    'recipient' => $phone,
+                                    'status' => $status,
+                                    'response' => json_encode($recipient),
+                                    'created_by' => $this->text->created_by ?? 1,
+                                    'updated_by' => $this->text->updated_by ?? 1,
+                                    'created_at' => now(),
+                                    'updated_at' => now(),
+                                ];
+                            }
+                        } else {
+                            // If API response format is unexpected, mark all as failed
+                            Log::warning("Unexpected API response format for batch " . ($batchIndex + 1));
                             foreach ($phones as $phone) {
                                 $failCount++;
                                 $queueRecords[] = [
@@ -515,52 +519,76 @@ class SendSmsJob implements ShouldQueue
                                     'message' => $message,
                                     'recipient' => $phone,
                                     'status' => TextStatus::FAILED,
-                                    'response' => json_encode(['error' => $e->getMessage()]),
-                                    'created_by' => $this->text->created_by,
-                                    'updated_by' => $this->text->updated_by,
+                                    'response' => json_encode(['error' => 'Unexpected API response format']),
+                                    'created_by' => $this->text->created_by ?? 1,
+                                    'updated_by' => $this->text->updated_by ?? 1,
                                     'created_at' => now(),
                                     'updated_at' => now(),
                                 ];
                             }
                         }
 
-                        // Insert all queue records at once using bulk insert
-                        if (!empty($queueRecords)) {
+                        // Insert queue records one by one to ensure proper logging
+                        foreach ($queueRecords as $record) {
                             try {
-                                Queue::insert($queueRecords);
-                                Log::info("Successfully logged " . count($queueRecords) . " queue records for batch {$batchIndex}");
-                            } catch (\Exception $e) {
-                                Log::error("Failed to insert queue records for batch {$batchIndex}: " . $e->getMessage());
+                                // Check if record already exists
+                                $existingRecord = Queue::where('text_id', $record['text_id'])
+                                    ->where('recipient', $record['recipient'])
+                                    ->where('message', $record['message'])
+                                    ->first();
 
-                                // Fallback: insert one by one with duplicate checking
-                                foreach ($queueRecords as $record) {
-                                    try {
-                                        Queue::updateOrCreate(
-                                            [
-                                                'text_id' => $record['text_id'],
-                                                'recipient' => $record['recipient'],
-                                                'message' => $record['message']
-                                            ],
-                                            $record
-                                        );
-                                    } catch (\Exception $individualError) {
-                                        Log::error("Failed to insert individual queue record: " . $individualError->getMessage());
-                                    }
+                                if (!$existingRecord) {
+                                    Queue::create($record);
+                                    Log::info("Queue record created for phone: {$record['recipient']} with status: {$record['status']}");
+                                } else {
+                                    Log::warning("Queue record already exists for phone: {$record['recipient']} - skipping");
                                 }
+                            } catch (\Exception $e) {
+                                Log::error("Failed to create queue record for phone: {$record['recipient']} - Error: " . $e->getMessage());
+                            }
+                        }
+
+                        Log::info("Batch " . ($batchIndex + 1) . " completed - Message group processed successfully");
+                    } catch (\Exception $e) {
+                        Log::error("Failed to send SMS batch " . ($batchIndex + 1) . ": " . $e->getMessage());
+
+                        // Mark all phones in this group as failed and log them
+                        foreach ($phones as $phone) {
+                            $failCount++;
+                            try {
+                                $existingRecord = Queue::where('text_id', $this->text->id)
+                                    ->where('recipient', $phone)
+                                    ->where('message', $message)
+                                    ->first();
+
+                                if (!$existingRecord) {
+                                    Queue::create([
+                                        'text_id' => $this->text->id,
+                                        'message' => $message,
+                                        'recipient' => $phone,
+                                        'status' => TextStatus::FAILED,
+                                        'response' => json_encode(['error' => $e->getMessage()]),
+                                        'created_by' => $this->text->created_by ?? 1,
+                                        'updated_by' => $this->text->updated_by ?? 1,
+                                        'created_at' => now(),
+                                        'updated_at' => now(),
+                                    ]);
+                                    Log::info("Failed queue record created for phone: {$phone}");
+                                }
+                            } catch (\Exception $dbError) {
+                                Log::error("Failed to create failed queue record for phone: {$phone} - Error: " . $dbError->getMessage());
                             }
                         }
                     }
-
-                    Log::info("Batch {$batchIndex} completed successfully within transaction");
-                }, 5); // 5 retry attempts for deadlock resolution
+                }
 
                 // Rate limiting between batches
-                if (count($contactBatches) > 10) {
-                    usleep(400000); // 400ms
+                if (count($contactBatches) > 1) {
+                    sleep(2); // 2 second delay between batches
                 }
             }
 
-            // Final status update in transaction
+            // Final status update
             DB::transaction(function () use ($successCount, $failCount, $duplicateCount) {
                 // Refresh the model to get latest status
                 $this->text->refresh();
@@ -579,6 +607,7 @@ class SendSmsJob implements ShouldQueue
             Log::info("SMS Campaign completed - Success: {$successCount}, Failed: {$failCount}, Duplicates Skipped: {$duplicateCount}");
         } catch (\Exception $e) {
             Log::error("Failed to initialize SMS sending: " . $e->getMessage());
+            Log::error("Stack trace: " . $e->getTraceAsString());
 
             DB::transaction(function () {
                 $this->text->refresh();
@@ -597,15 +626,22 @@ class SendSmsJob implements ShouldQueue
         $seenInCurrentBatch = [];
         $duplicateCount = 0;
 
-        // First, get all phone+message combinations for this text campaign that have already been processed
-        $alreadyProcessedCombinations = Queue::where('text_id', $this->text->id)
-            ->get(['recipient', 'message'])
-            ->map(function ($item) {
-                return $item->recipient . '|' . $item->message;
-            })
-            ->toArray();
+        // Get all phone+message combinations for this text campaign that have already been processed
+        $alreadyProcessedCombinations = [];
 
-        Log::info("Found " . count($alreadyProcessedCombinations) . " already processed phone+message combinations for text ID: {$this->text->id}");
+        try {
+            $processedRecords = Queue::where('text_id', $this->text->id)
+                ->select('recipient', 'message')
+                ->get();
+
+            foreach ($processedRecords as $record) {
+                $alreadyProcessedCombinations[] = $record->recipient . '|' . $record->message;
+            }
+
+            Log::info("Found " . count($alreadyProcessedCombinations) . " already processed phone+message combinations for text ID: {$this->text->id}");
+        } catch (\Exception $e) {
+            Log::error("Error fetching already processed combinations: " . $e->getMessage());
+        }
 
         foreach ($contacts as $contact) {
             $phone = $contact['phone'];
