@@ -442,24 +442,29 @@ class SendSmsJob implements ShouldQueue
      */
     private function createQueueRecordSafely($data)
     {
-        try {
-            $existing = Queue::where('text_id', $data['text_id'])
-                ->where('recipient', $data['recipient'])
-                ->where('message', $data['message'])
-                ->first();
 
-            if (!$existing) {
-                Queue::create(array_merge($data, [
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]));
-                Log::debug("Queue record created for {$data['recipient']}");
-            } else {
-                Log::debug("Queue record already exists for {$data['recipient']}");
-            }
-        } catch (\Exception $e) {
-            Log::error("Failed to create queue record for {$data['recipient']}: " . $e->getMessage());
-        }
+        Queue::create(array_merge($data, [
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]));
+        // try {
+        //     $existing = Queue::where('text_id', $data['text_id'])
+        //         ->where('recipient', $data['recipient'])
+        //         ->where('message', $data['message'])
+        //         ->first();
+
+        //     if (!$existing) {
+        //         Queue::create(array_merge($data, [
+        //             'created_at' => now(),
+        //             'updated_at' => now(),
+        //         ]));
+        //         Log::debug("Queue record created for {$data['recipient']}");
+        //     } else {
+        //         Log::debug("Queue record already exists for {$data['recipient']}");
+        //     }
+        // } catch (\Exception $e) {
+        //     Log::error("Failed to create queue record for {$data['recipient']}: " . $e->getMessage());
+        // }
     }
 
     // Keep all your existing methods below (processManualContacts, processSavedContacts, etc.)
