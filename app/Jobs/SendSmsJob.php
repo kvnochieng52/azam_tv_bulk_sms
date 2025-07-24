@@ -564,7 +564,7 @@ class SendSmsJob implements ShouldQueue
     {
         foreach ($contactData as $key => $value) {
             $placeholder = '{' . trim($key) . '}';
-            $message = str_replace($placeholder, $value, $message);
+            $message = str_ireplace($placeholder, $value, $message);
         }
         return $message;
     }
