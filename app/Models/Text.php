@@ -19,6 +19,7 @@ class Text extends Model
      * @var array<int, string>
      */
     protected $fillable = [
+        'country_id',
         'text_title',
         'contact_type',
         'recepient_contacts',
@@ -48,6 +49,11 @@ class Text extends Model
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
+
+    public function country()
+    {
+        return $this->belongsTo(Country::class);
+    }
 
     /**
      * Get the text status associated with the text.

@@ -329,9 +329,10 @@ class SendSmsJob implements ShouldQueue
 
         Log::info("Sending SMS to " . count($contacts) . " contacts (Processing ID: {$processingId})");
 
-        $username = config('services.africastalking.username');
-        $apiKey = config('services.africastalking.api_key');
-        $senderId = config('services.africastalking.sender_id');
+        $atConfig = $this->getAtConfig();
+        $username = $atConfig['username'];
+        $apiKey   = $atConfig['api_key'];
+        $senderId = $atConfig['sender_id'];
 
         try {
             $AT = new AfricasTalking($username, $apiKey);
@@ -541,15 +542,31 @@ class SendSmsJob implements ShouldQueue
         }
     }
 
+    private function getCountryPrefix(): string
+    {
+        return $this->text->country->phone_prefix ?? '254';
+    }
+
+    private function getAtConfig(): array
+    {
+        $code = strtolower($this->text->country->code ?? 'ke');
+        return [
+            'username'  => config("services.africastalking_{$code}.username"),
+            'api_key'   => config("services.africastalking_{$code}.api_key"),
+            'sender_id' => config("services.africastalking_{$code}.sender_id"),
+        ];
+    }
+
     private function cleanPhoneNumber($phoneNumber)
     {
+        $prefix  = $this->getCountryPrefix();
         $cleaned = preg_replace('/[^0-9]/', '', $phoneNumber);
 
         if (empty($cleaned)) {
             return '';
         }
 
-        if (strpos($cleaned, '254') === 0) {
+        if (strpos($cleaned, $prefix) === 0) {
             return $cleaned;
         }
 
@@ -557,7 +574,7 @@ class SendSmsJob implements ShouldQueue
             $cleaned = substr($cleaned, 1);
         }
 
-        return '254' . $cleaned;
+        return $prefix . $cleaned;
     }
 
     private function replacePlaceholders($message, $contactData)
@@ -581,9 +598,10 @@ class SendSmsJob implements ShouldQueue
 
         Log::info("Preparing to send SMS to " . count($contacts) . " contacts");
 
-        $username = config('services.africastalking.username');
-        $apiKey = config('services.africastalking.api_key');
-        $senderId = config('services.africastalking.sender_id');
+        $atConfig = $this->getAtConfig();
+        $username = $atConfig['username'];
+        $apiKey   = $atConfig['api_key'];
+        $senderId = $atConfig['sender_id'];
 
         try {
             $AT = new AfricasTalking($username, $apiKey);

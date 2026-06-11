@@ -54,6 +54,11 @@ class User extends Authenticatable
 
 
 
+    public function countries()
+    {
+        return $this->belongsToMany(Country::class);
+    }
+
     public static function getUserPermissions($id)
     {
 

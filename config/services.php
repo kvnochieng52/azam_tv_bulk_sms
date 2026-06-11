@@ -32,10 +32,16 @@ return [
     ],
 
 
-    'africastalking' => [
-        'username' => env('AT_USER_NAME'),
-        'api_key' => env('AT_API_KEY'),
-        'sender_id' => env('AT_SENDER_ID'),
+    'africastalking_ke' => [
+        'username' => env('AT_USER_NAME_KE'),
+        'api_key' => env('AT_API_KEY_KE'),
+        'sender_id' => env('AT_SENDER_ID_KE'),
+    ],
+
+    'africastalking_ug' => [
+        'username' => env('AT_USER_NAME_UG'),
+        'api_key' => env('AT_API_KEY_UG'),
+        'sender_id' => env('AT_SENDER_ID_UG'),
     ],
 
 

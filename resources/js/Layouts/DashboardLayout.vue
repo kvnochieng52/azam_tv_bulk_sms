@@ -36,13 +36,20 @@
               <i class="fas fa-spinner fa-spin"></i> Loading...
             </span>
             <span class="balance-label" v-else-if="balanceError">
-              <i class="fas fa-exclamation-triangle text-warning"></i> Error
+              <i class="fas fa-exclamation-triangle text-warning"></i> Balance Error
             </span>
             <span class="balance-label" v-else>
-              <span class="balance-amount"
-                ><i class="nav-icon fas fa-money-bill"></i> BALANCE:
-                {{ currency }} {{ smsCredit.toFixed(2) }}</span
+              <span
+                v-for="(item, index) in balances"
+                :key="item.code"
+                class="balance-amount"
               >
+                <i class="nav-icon fas fa-money-bill" v-if="index === 0"></i>
+                {{ item.code }}:
+                <span v-if="item.success">{{ formatBalanceAmount(item.balance) }}</span>
+                <span v-else class="text-warning" :title="item.message">N/A</span>
+                <span v-if="index < balances.length - 1"> &nbsp;|&nbsp; </span>
+              </span>
               <button
                 @click.stop="fetchBalance"
                 class="balance-refresh"
@@ -392,11 +399,17 @@ const props = defineProps({
 });
 
 // Balance related state
-const balance = ref("0.00 USD");
-const currency = ref("USD");
-const smsCredit = ref(0);
+const balances = ref([]);
 const isBalanceLoading = ref(false);
 const balanceError = ref(null);
+
+const formatBalanceAmount = (bal) => {
+  if (!bal) return "N/A";
+  const parts = bal.split(" ");
+  const currency = parts[0] ?? "";
+  const amount = parseFloat(parts[1] ?? "0").toFixed(2);
+  return `${currency} ${Number(amount).toLocaleString("en-US", { minimumFractionDigits: 2 })}`;
+};
 
 const fetchBalance = async () => {
   try {
@@ -405,9 +418,7 @@ const fetchBalance = async () => {
     const response = await axios.get(route("dashboard.balance"));
 
     if (response.data.success) {
-      balance.value = response.data.balance;
-      currency.value = response.data.balance.split(" ")[0];
-      smsCredit.value = parseFloat(response.data.balance.split(" ")[1]);
+      balances.value = response.data.balances;
     } else {
       balanceError.value = response.data.message || "Failed to fetch balance";
     }

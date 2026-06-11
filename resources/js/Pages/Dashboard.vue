@@ -1,18 +1,16 @@
 <script setup>
-import { ref, onMounted, computed } from "vue";
-import { Head, Link } from "@inertiajs/vue3";
+import { ref, onMounted, onUnmounted, computed } from "vue";
+import { Head, Link, router } from "@inertiajs/vue3";
 import axios from "axios";
 import DashboardLayout from "../Layouts/DashboardLayout.vue";
 import StatCard from "../Components/Dashboard/StatCard.vue";
 import ChartBox from "../Components/Dashboard/ChartBox.vue";
 import TableCard from "../Components/Dashboard/TableCard.vue";
-import { router } from "@inertiajs/vue3";
 
 // Reactive data
-const balance = ref(null);
+const balances = ref([]);      // per-country balances
 const balanceError = ref(null);
 const isBalanceLoading = ref(false);
-const currency = ref("KES");
 const lastUpdated = ref(null);
 
 // Stats with reactive data
@@ -20,7 +18,7 @@ const stats = ref({
   smsSent: 0,
   inQueue: 0,
   failedDeliveries: 0,
-  smsCredit: 0,
+  smsCredit: 0, // unused, kept for layout compatibility
 });
 const isStatsLoading = ref(false);
 const statsError = ref(null);
@@ -89,17 +87,24 @@ const chartOptions = {
   },
 };
 
-// Format balance for display
+// Format balance string e.g. "KES 120.50" → "KES 120.50"
 const formatBalance = (bal) => {
   if (!bal) return "0.00";
-  const amount = parseFloat(bal.split(" ")[1]).toFixed(2);
+  const parts = bal.split(" ");
+  const amount = parseFloat(parts[1] ?? bal).toFixed(2);
   return new Intl.NumberFormat("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(amount);
 };
 
-// Fetch balance from API
+const formatBalanceFull = (bal) => {
+  if (!bal) return "N/A";
+  const parts = bal.split(" ");
+  return `${parts[0]} ${formatBalance(bal)}`;
+};
+
+// Fetch per-country balances from API
 const fetchBalance = async () => {
   try {
     isBalanceLoading.value = true;
@@ -107,9 +112,7 @@ const fetchBalance = async () => {
     const response = await axios.get(route("dashboard.balance"));
 
     if (response.data.success) {
-      balance.value = response.data.balance;
-      currency.value = response.data.balance.split(" ")[0];
-      stats.value.smsCredit = parseFloat(response.data.balance.split(" ")[1]);
+      balances.value = response.data.balances;
       lastUpdated.value = new Date().toLocaleTimeString();
     } else {
       balanceError.value = response.data.message || "Failed to fetch balance";
@@ -336,21 +339,42 @@ onMounted(async () => {
         link-text="View Failed"
         @click="handleStatClick('failed')"
       />
-      <StatCard
-        title="SMS Balance"
-        :value="
-          isBalanceLoading
-            ? '...'
-            : balance
-            ? `${currency} ${formatBalance(balance)}`
-            : 'N/A'
-        "
-        icon="fas fa-credit-card"
-        bg-color="bg-success"
-        :subtext="lastUpdated ? `Updated: ${lastUpdated}` : ''"
-        link-text="Refresh"
-        @click="refreshAll"
-      />
+      <!-- Single balance card for all assigned countries -->
+      <div class="col-lg-3 col-6">
+        <div class="small-box balance-box">
+          <div class="inner">
+            <div v-if="isBalanceLoading" class="balance-loading">
+              <i class="fas fa-spinner fa-spin"></i> Loading...
+            </div>
+            <div v-else>
+              <div
+                v-for="(item, index) in balances"
+                :key="item.code"
+                :class="{ 'balance-row-divider': index > 0 }"
+                class="balance-row"
+              >
+                <span class="balance-country-label">{{ item.country }}</span>
+                <span
+                  v-if="item.success && item.balance"
+                  class="balance-value"
+                  :class="parseFloat(item.balance.split(' ')[1]) < 1000 ? 'balance-low' : 'balance-ok'"
+                >
+                  {{ formatBalanceFull(item.balance) }}
+                </span>
+                <span v-else class="balance-na" :title="item.message">N/A</span>
+              </div>
+              <div v-if="!balances.length" class="balance-na">No countries assigned</div>
+            </div>
+            <p class="balance-card-title">SMS Balance</p>
+          </div>
+          <div class="icon">
+            <i class="fas fa-credit-card"></i>
+          </div>
+          <a href="#" class="small-box-footer" @click.prevent="refreshAll">
+            Refresh <i class="fas fa-sync-alt"></i>
+          </a>
+        </div>
+      </div>
     </div>
 
     <!-- Charts Row -->
@@ -564,5 +588,65 @@ onMounted(async () => {
 .table-hover tbody tr:hover {
   color: #212529;
   background-color: rgba(0, 0, 0, 0.075);
+}
+
+/* Balance card — neutral/white, no coloured bg */
+.balance-box {
+  background: #fff;
+  color: #343a40;
+  border: 1px solid #dee2e6;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+.balance-box .icon i {
+  color: #ced4da;
+}
+.balance-box .small-box-footer {
+  background: rgba(0,0,0,0.04);
+  color: #6c757d;
+}
+.balance-box .small-box-footer:hover {
+  background: rgba(0,0,0,0.08);
+  color: #343a40;
+}
+.balance-card-title {
+  font-size: 0.85rem;
+  color: #6c757d;
+  margin: 6px 0 0;
+}
+.balance-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  line-height: 1.4;
+}
+.balance-row-divider {
+  border-top: 1px solid #f0f0f0;
+  margin-top: 4px;
+  padding-top: 4px;
+}
+.balance-country-label {
+  font-size: 0.78rem;
+  color: #6c757d;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-right: 6px;
+}
+.balance-value {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+.balance-ok {
+  color: #28a745;
+}
+.balance-low {
+  color: #dc3545;
+}
+.balance-na {
+  font-size: 0.9rem;
+  color: #adb5bd;
+}
+.balance-loading {
+  color: #6c757d;
+  font-size: 0.9rem;
 }
 </style>

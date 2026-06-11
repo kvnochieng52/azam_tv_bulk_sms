@@ -99,6 +99,39 @@
                 </div>
               </div>
 
+              <div class="mb-3">
+                <label class="form-label fw-bold"
+                  >Assigned Countries<span class="text-danger">*</span></label
+                >
+                <div
+                  class="border rounded p-2"
+                  :class="{ 'border-danger': form.errors.countries }"
+                >
+                  <div
+                    v-for="country in countries"
+                    :key="country.id"
+                    class="form-check"
+                  >
+                    <input
+                      class="form-check-input"
+                      type="checkbox"
+                      :id="`country_${country.id}`"
+                      :value="country.id"
+                      v-model="form.countries"
+                    />
+                    <label
+                      class="form-check-label"
+                      :for="`country_${country.id}`"
+                    >
+                      {{ country.name }} ({{ country.code }})
+                    </label>
+                  </div>
+                </div>
+                <div v-if="form.errors.countries" class="text-danger mt-1" style="font-size:0.875em">
+                  {{ form.errors.countries }}
+                </div>
+              </div>
+
               <div class="mb-3 form-check">
                 <input
                   type="checkbox"
@@ -151,6 +184,7 @@ import Toast from "@/Services/toast";
 
 defineProps({
   roles: Array,
+  countries: Array,
 });
 
 const form = useForm({
@@ -161,6 +195,7 @@ const form = useForm({
   password_confirmation: "",
   role: "",
   active: true,
+  countries: [],
 });
 
 const submit = () => {

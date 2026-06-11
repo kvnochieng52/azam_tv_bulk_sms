@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use AfricasTalking\SDK\AfricasTalking;
 use Illuminate\Support\Facades\File;
 
+use App\Models\Country;
 use App\Models\Text;
 use App\Models\Contact;
 use App\Models\ContactList;
@@ -28,12 +29,13 @@ class TextController extends Controller
     public function exportCsv(Request $request)
     {
         $search = $request->input('search', '');
+        $userCountryIds = Auth::user()->countries()->pluck('countries.id');
 
         $query = Text::with([
             'status:id,text_status_name,color_code',
             'creator:id,name,email',
             'updater:id,name,email',
-        ]);
+        ])->whereIn('country_id', $userCountryIds);
 
         if ($search) {
             $query->where(function ($q) use ($search) {
@@ -115,13 +117,16 @@ class TextController extends Controller
     public function index(Request $request)
     {
         $search = $request->input('search', '');
+        $userCountryIds = Auth::user()->countries()->pluck('countries.id');
+
         $query = Text::with([
-            'status:id,text_status_name,color_code', // Only load needed fields
-            'creator:id,name,email',                // Only load needed fields
-            'updater:id,name,email',                // Only load needed fields
+            'status:id,text_status_name,color_code',
+            'creator:id,name,email',
+            'updater:id,name,email',
         ])
-            ->select('texts.*') // Ensure we select all text fields
-            ->where('texts.status_id', '!=', TextStatus::SCHEDULED) // Exclude scheduled texts
+            ->select('texts.*')
+            ->whereIn('texts.country_id', $userCountryIds)
+            ->where('texts.status_id', '!=', TextStatus::SCHEDULED)
             ->orderBy('created_at', 'desc');
 
         if ($search) {
@@ -153,15 +158,17 @@ class TextController extends Controller
 
 
 
-        // Get contact groups for dropdown
         $contacts = Contact::where('is_active', 1)
             ->withCount(['contactLists' => function ($query) {
                 $query->where('is_active', 1);
             }])
             ->get();
 
+        $countries = Auth::user()->countries()->where('is_active', true)->get(['countries.id', 'name', 'code', 'phone_prefix']);
+
         return Inertia::render('SMS/Create', [
-            'contacts' => $contacts
+            'contacts'  => $contacts,
+            'countries' => $countries,
         ]);
     }
 
@@ -172,11 +179,12 @@ class TextController extends Controller
     {
         // Validate the request
         $validator = Validator::make($request->all(), [
-            'text_title' => 'required|string|max:255',
-            'contact_type' => 'required|string|in:manual,csv,list',
-            'message' => 'required|string|max:300',
-            'recepient_contacts' => 'required_if:contact_type,manual|nullable|string',
-            'contact_list' => 'required_if:contact_type,list|nullable',
+            'country_id'          => 'required|exists:countries,id',
+            'text_title'          => 'required|string|max:255',
+            'contact_type'        => 'required|string|in:manual,csv,list',
+            'message'             => 'required|string|max:300',
+            'recepient_contacts'  => 'required_if:contact_type,manual|nullable|string',
+            'contact_list'        => 'required_if:contact_type,list|nullable',
         ]);
 
         if ($validator->fails()) {
@@ -404,13 +412,14 @@ class TextController extends Controller
     {
         // Validation would go here similar to the preview method
         $validator = Validator::make($request->all(), [
-            'text_title' => 'required|string|max:255',
-            'contact_type' => 'required|string|in:manual,csv,list',
-            'message' => 'required|string|max:300',
+            'country_id'         => 'required|exists:countries,id',
+            'text_title'         => 'required|string|max:255',
+            'contact_type'       => 'required|string|in:manual,csv,list',
+            'message'            => 'required|string|max:300',
             'recepient_contacts' => 'required_if:contact_type,manual|nullable|string',
-            'contact_list' => 'required_if:contact_type,list|nullable',
-            'scheduled' => 'nullable|boolean',
-            'schedule_date' => 'required_if:scheduled,1|nullable|date',
+            'contact_list'       => 'required_if:contact_type,list|nullable',
+            'scheduled'          => 'nullable|boolean',
+            'schedule_date'      => 'required_if:scheduled,1|nullable|date',
         ]);
 
         if ($validator->fails()) {
@@ -419,6 +428,7 @@ class TextController extends Controller
 
         // Create new text record
         $text = new Text();
+        $text->country_id = $request->country_id;
         $text->text_title = $request->text_title;
         $text->message = $request->message;
         $text->contact_type = $request->contact_type;
@@ -628,13 +638,16 @@ class TextController extends Controller
     public function scheduled(Request $request)
     {
         $search = $request->input('search', '');
+        $userCountryIds = Auth::user()->countries()->pluck('countries.id');
+
         $query = Text::with([
             'status:id,text_status_name,color_code',
             'creator:id,name,email',
             'updater:id,name,email',
         ])
-            ->where('status_id', TextStatus::SCHEDULED) // Only get scheduled texts
-            ->orderBy('created_at', 'desc'); // Order by schedule date
+            ->whereIn('country_id', $userCountryIds)
+            ->where('status_id', TextStatus::SCHEDULED)
+            ->orderBy('created_at', 'desc');
 
         if ($search) {
             $query->where(function ($q) use ($search) {
@@ -662,25 +675,25 @@ class TextController extends Controller
     public function getProgress(Request $request)
     {
         $textIds = $request->input('text_ids', []);
+        $userCountryIds = Auth::user()->countries()->pluck('countries.id');
 
-        // First get the progress counts
         $countQuery = DB::table('texts')
             ->select('texts.id', 'texts.contacts_count')
             ->selectRaw('COUNT(queues.id) as processed_count')
             ->leftJoin('queues', 'texts.id', '=', 'queues.text_id')
+            ->whereIn('texts.country_id', $userCountryIds)
             ->groupBy('texts.id', 'texts.contacts_count');
 
-        // If specific text IDs were provided, filter by them
         if (!empty($textIds)) {
             $countQuery->whereIn('texts.id', $textIds);
         }
 
         $progressCounts = $countQuery->get();
 
-        // Then get the current status information
         $statusQuery = DB::table('texts')
             ->select('texts.id', 'texts.status_id', 'text_statuses.text_status_name', 'text_statuses.color_code')
-            ->join('text_statuses', 'texts.status_id', '=', 'text_statuses.id');
+            ->join('text_statuses', 'texts.status_id', '=', 'text_statuses.id')
+            ->whereIn('texts.country_id', $userCountryIds);
 
         if (!empty($textIds)) {
             $statusQuery->whereIn('texts.id', $textIds);

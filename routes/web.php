@@ -94,4 +94,5 @@ Route::middleware(['auth', 'is_active'])->group(function () {
 
 
 
+
 require __DIR__ . '/auth.php';

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Country;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -71,8 +72,10 @@ class UserController extends Controller
     public function create()
     {
         $roles = Role::all();
+        $countries = Country::where('is_active', true)->get(['id', 'name', 'code']);
         return Inertia::render('Users/Create', [
-            'roles' => $roles
+            'roles'     => $roles,
+            'countries' => $countries,
         ]);
     }
 
@@ -80,25 +83,27 @@ class UserController extends Controller
     {
         $request->validate([
             'full_names' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
-            'telephone' => 'required|string|max:20',
-            'password' => 'required|string|min:8|confirmed',
-            'role' => 'required|exists:roles,id',
-            'active' => 'required|boolean',
+            'email'      => 'required|string|email|max:255|unique:users',
+            'telephone'  => 'required|string|max:20',
+            'password'   => 'required|string|min:8|confirmed',
+            'role'       => 'required|exists:roles,id',
+            'active'     => 'required|boolean',
+            'countries'  => 'required|array|min:1',
+            'countries.*'=> 'exists:countries,id',
         ]);
 
         $user = User::create([
-            'name' => $request->full_names,
-            'email' => $request->email,
-            'telephone' => $request->telephone,
-            'password' => bcrypt($request->password),
-            'is_active' => $request->active,
-            'created_by' => auth()->user()->id,
-            'updated_by' => auth()->user()->id
+            'name'       => $request->full_names,
+            'email'      => $request->email,
+            'telephone'  => $request->telephone,
+            'password'   => bcrypt($request->password),
+            'is_active'  => $request->active,
+            'created_by' => auth()->id(),
+            'updated_by' => auth()->id(),
         ]);
 
-        $role = Role::findById($request->role);
-        $user->assignRole($role);
+        $user->assignRole(Role::findById($request->role));
+        $user->countries()->sync($request->countries);
 
         return redirect()->route('users.index')->with('success', 'User created successfully.');
     }
@@ -113,37 +118,41 @@ class UserController extends Controller
     public function edit(User $user)
     {
         $roles = Role::all();
+        $countries = Country::where('is_active', true)->get(['id', 'name', 'code']);
         return Inertia::render('Users/Edit', [
-            'user' => $user->load('roles'),
-            'roles' => $roles
+            'user'      => $user->load(['roles', 'countries']),
+            'roles'     => $roles,
+            'countries' => $countries,
         ]);
     }
 
     public function update(Request $request, User $user)
     {
         $request->validate([
-            'full_names' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users,email,' . $user->id,
-            'telephone' => 'required|string|max:20',
-            'password' => 'nullable|string|min:8|confirmed',
-            'role' => 'required|exists:roles,id',
-            'active' => 'required|boolean',
+            'full_names'  => 'required|string|max:255',
+            'email'       => 'required|string|email|max:255|unique:users,email,' . $user->id,
+            'telephone'   => 'required|string|max:20',
+            'password'    => 'nullable|string|min:8|confirmed',
+            'role'        => 'required|exists:roles,id',
+            'active'      => 'required|boolean',
+            'countries'   => 'required|array|min:1',
+            'countries.*' => 'exists:countries,id',
         ]);
 
         $user->update([
-            'name' => $request->full_names,
-            'email' => $request->email,
-            'telephone' => $request->telephone,
-            'is_active' => $request->active,
-            'updated_by' => auth()->user()->id
+            'name'       => $request->full_names,
+            'email'      => $request->email,
+            'telephone'  => $request->telephone,
+            'is_active'  => $request->active,
+            'updated_by' => auth()->id(),
         ]);
 
         if ($request->password) {
             $user->update(['password' => bcrypt($request->password)]);
         }
 
-        $role = Role::findById($request->role);
-        $user->syncRoles([$role]);
+        $user->syncRoles([Role::findById($request->role)]);
+        $user->countries()->sync($request->countries);
 
         return redirect()->route('users.index')->with('success', 'User updated successfully.');
     }

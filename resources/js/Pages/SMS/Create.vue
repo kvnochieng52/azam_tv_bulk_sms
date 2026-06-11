@@ -8,351 +8,347 @@
           </div>
           <div class="card-body">
             <form @submit.prevent="submitForm">
-              <!-- Title of SMS / Campaign -->
-              <div class="form-group mb-4">
-                <label for="text_title" class="form-label fw-bold"
-                  >Title of SMS / Campaign<span class="text-danger"
-                    >*</span
-                  ></label
-                >
-                <input
-                  type="text"
-                  id="text_title"
-                  v-model="form.text_title"
-                  class="form-control"
-                  :class="{ 'is-invalid': errors.text_title }"
-                  placeholder="Enter the SMS/Campaign Title"
-                />
-                <div v-if="errors.text_title" class="invalid-feedback">
-                  {{ errors.text_title }}
-                </div>
-              </div>
+              <div class="row g-4">
 
-              <!-- Contact Source -->
-              <div class="form-group mb-4">
-                <label class="form-label fw-bold"
-                  >Select Contact Source<span class="text-danger"
-                    >*</span
-                  ></label
-                >
-                <div class="mt-2">
-                  <div class="form-check form-check-inline">
-                    <input
-                      class="form-check-input"
-                      type="radio"
-                      id="contact_type_manual"
-                      v-model="form.contact_type"
-                      value="manual"
-                    />
-                    <label class="form-check-label" for="contact_type_manual"
-                      >Enter Recipient Contacts</label
-                    >
-                  </div>
-                  <div class="form-check form-check-inline">
-                    <input
-                      class="form-check-input"
-                      type="radio"
-                      id="contact_type_csv"
-                      v-model="form.contact_type"
-                      value="csv"
-                    />
-                    <label class="form-check-label" for="contact_type_csv"
-                      >Import from a CSV File</label
-                    >
-                  </div>
-                  <div class="form-check form-check-inline">
-                    <input
-                      class="form-check-input"
-                      type="radio"
-                      id="contact_type_list"
-                      v-model="form.contact_type"
-                      value="list"
-                    />
-                    <label class="form-check-label" for="contact_type_list"
-                      >From a Saved Contact List</label
-                    >
-                  </div>
-                </div>
-                <div v-if="errors.contact_type" class="text-danger mt-1">
-                  {{ errors.contact_type }}
-                </div>
-              </div>
-
-              <!-- Dynamic input based on contact type selection -->
-              <div class="form-group mb-4">
-                <!-- Manual input - comma separated contacts -->
-                <div v-if="form.contact_type === 'manual'">
-                  <label for="recepient_contacts" class="form-label fw-bold"
-                    >Enter Contacts (comma-separated)<span class="text-danger"
-                      >*</span
-                    ></label
-                  >
-                  <textarea
-                    id="recepient_contacts"
-                    v-model="form.recepient_contacts"
-                    class="form-control"
-                    :class="{ 'is-invalid': errors.recepient_contacts }"
-                    rows="2"
-                    placeholder="Enter the contacts comma separated e.g. 0712345678,0714345678"
-                  ></textarea>
-                  <div
-                    v-if="errors.recepient_contacts"
-                    class="invalid-feedback"
-                  >
-                    {{ errors.recepient_contacts }}
-                  </div>
-                </div>
-
-                <!-- CSV file upload -->
-                <div v-if="form.contact_type === 'csv'">
-                  <label class="form-label fw-bold"
-                    >&nbsp;Upload CSV File<span class="text-danger"
-                      >*</span
-                    ></label
-                  >
-                  <div class="input-group">
-                    <button
-                      type="button"
-                      class="btn btn-primary"
-                      @click="openFileUploadModal"
-                    >
-                      <i class="fas fa-upload me-1"></i> Upload CSV File
-                    </button>
-                  </div>
-                  <div v-if="csvFileName" class="csv-file-preview mt-3">
-                    <div class="preview-header">
-                      <h6>
-                        <i class="fas fa-file-csv me-2"></i> CSV File Uploaded
-                      </h6>
-                      <button
-                        type="button"
-                        class="btn-remove-preview"
-                        @click="clearCsvFile"
-                      >
-                        <i class="fas fa-times"></i>
-                      </button>
+                <!-- ===== LEFT COLUMN: Campaign Details ===== -->
+                <div class="col-lg-6">
+                  <div class="form-column-card">
+                    <div class="form-column-header">
+                      <i class="fas fa-info-circle me-2"></i>Campaign Details
                     </div>
-                    <div class="preview-content">
-                      <div class="file-name">{{ csvFileName }}</div>
-                      <div class="file-details" v-if="csvColumns.length > 0">
-                        <!-- <div class="file-columns">Columns detected: <span class="text-primary">{{ csvColumns.length }}</span></div> -->
-                        <div class="file-help-text mt-2">
-                          <small class="text-muted"
-                            >Use the <code>{ }</code> button next to the message
-                            box to insert column values</small
-                          >
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div v-if="errors.csv_file" class="text-danger mt-1">
-                    {{ errors.csv_file }}
-                  </div>
-                </div>
+                    <div class="form-column-body">
 
-                <!-- Contact list selection -->
-                <div v-if="form.contact_type === 'list'">
-                  <label for="contact_list" class="form-label fw-bold"
-                    >Select Contact Group<span class="text-danger"
-                      >*</span
-                    ></label
-                  >
-                  <MultiSelect
-                    id="contact_list"
-                    v-model="form.contact_list"
-                    :options="formattedContacts"
-                    track-by="id"
-                    label="label"
-                    placeholder="Select contact groups"
-                    :show-labels="false"
-                    :clear-on-select="false"
-                    :preserve-search="true"
-                    :error="errors.contact_list"
-                    @input="updateTagsCount"
-                    ref="contactMultiSelect"
-                  />
-                  <small class="form-text text-muted"
-                    >Click to search and select multiple contact groups</small
-                  >
-                </div>
-              </div>
-
-              <!-- Message Box -->
-              <div class="form-group mb-4">
-                <label for="message" class="form-label fw-bold"
-                  >Message<span class="text-danger">*</span></label
-                >
-                <div class="position-relative">
-                  <div
-                    class="message-tools"
-                    v-if="form.contact_type === 'csv' && csvFilePath"
-                    @click.stop
-                  >
-                    <div class="dropdown">
-                      <button
-                        class="btn btn-sm btn-outline-secondary column-btn"
-                        type="button"
-                        @click="toggleColumnDropdown"
-                      >
-                        <span class="column-btn-icon">{ }</span>
-                      </button>
-                      <div class="column-dropdown" v-if="showColumnDropdown">
-                        <div class="column-dropdown-header">Insert Column</div>
-                        <!-- Debug output -->
-                        <!-- <div class="debug-info" v-if="csvColumns && csvColumns.length > 0">
-                          Available columns: {{ csvColumns.length }}
-                        </div> -->
-
-                        <!-- Column list -->
-                        <div class="column-list">
-                          <button
-                            v-for="column in csvColumns"
-                            :key="column"
-                            class="column-item"
-                            @click.prevent="insertColumnAtCursor(column)"
-                            type="button"
-                          >
-                            {{ column }}
-                          </button>
-                        </div>
-                        <div
-                          v-if="!csvColumns || csvColumns.length === 0"
-                          class="no-columns"
+                      <!-- Title -->
+                      <div class="form-group mb-4">
+                        <label for="text_title" class="form-label fw-bold"
+                          >Title of SMS / Campaign<span class="text-danger">*</span></label
                         >
-                          No columns available
+                        <input
+                          type="text"
+                          id="text_title"
+                          v-model="form.text_title"
+                          class="form-control"
+                          :class="{ 'is-invalid': errors.text_title }"
+                          placeholder="Enter the SMS/Campaign Title"
+                        />
+                        <div v-if="errors.text_title" class="invalid-feedback">
+                          {{ errors.text_title }}
                         </div>
                       </div>
+
+                      <!-- SMS Sending Country -->
+                      <div class="form-group mb-4">
+                        <label for="country_id" class="form-label fw-bold"
+                          >SMS Sending Country<span class="text-danger">*</span></label
+                        >
+                        <select
+                          id="country_id"
+                          v-model="form.country_id"
+                          class="form-control"
+                          :class="{ 'is-invalid': errors.country_id }"
+                        >
+                          <option value="" disabled>-- Select Country --</option>
+                          <option
+                            v-for="country in countries"
+                            :key="country.id"
+                            :value="country.id"
+                          >
+                            {{ country.name }} (+{{ country.phone_prefix }})
+                          </option>
+                        </select>
+                        <div v-if="errors.country_id" class="invalid-feedback">
+                          {{ errors.country_id }}
+                        </div>
+                      </div>
+
+                      <!-- Contact Source -->
+                      <div class="form-group mb-4">
+                        <label class="form-label fw-bold"
+                          >Select Contact Source<span class="text-danger">*</span></label
+                        >
+                        <div class="contact-source-group mt-2">
+                          <div class="form-check form-check-inline">
+                            <input
+                              class="form-check-input"
+                              type="radio"
+                              id="contact_type_manual"
+                              v-model="form.contact_type"
+                              value="manual"
+                            />
+                            <label class="form-check-label" for="contact_type_manual"
+                              >Enter Contacts</label
+                            >
+                          </div>
+                          <div class="form-check form-check-inline">
+                            <input
+                              class="form-check-input"
+                              type="radio"
+                              id="contact_type_csv"
+                              v-model="form.contact_type"
+                              value="csv"
+                            />
+                            <label class="form-check-label" for="contact_type_csv"
+                              >Import CSV</label
+                            >
+                          </div>
+                          <div class="form-check form-check-inline">
+                            <input
+                              class="form-check-input"
+                              type="radio"
+                              id="contact_type_list"
+                              v-model="form.contact_type"
+                              value="list"
+                            />
+                            <label class="form-check-label" for="contact_type_list"
+                              >Contact List</label
+                            >
+                          </div>
+                        </div>
+                        <div v-if="errors.contact_type" class="text-danger mt-1">
+                          {{ errors.contact_type }}
+                        </div>
+                      </div>
+
+                      <!-- Dynamic input -->
+                      <div class="form-group mb-0">
+                        <!-- Manual -->
+                        <div v-if="form.contact_type === 'manual'">
+                          <label for="recepient_contacts" class="form-label fw-bold"
+                            >Enter Contacts (comma-separated)<span class="text-danger">*</span></label
+                          >
+                          <textarea
+                            id="recepient_contacts"
+                            v-model="form.recepient_contacts"
+                            class="form-control"
+                            :class="{ 'is-invalid': errors.recepient_contacts }"
+                            rows="4"
+                            placeholder="e.g. 0712345678,0714345678"
+                          ></textarea>
+                          <div v-if="errors.recepient_contacts" class="invalid-feedback">
+                            {{ errors.recepient_contacts }}
+                          </div>
+                        </div>
+
+                        <!-- CSV -->
+                        <div v-if="form.contact_type === 'csv'">
+                          <label class="form-label fw-bold"
+                            >Upload CSV File<span class="text-danger">*</span></label
+                          >
+                          <div class="input-group">
+                            <button
+                              type="button"
+                              class="btn btn-primary"
+                              @click="openFileUploadModal"
+                            >
+                              <i class="fas fa-upload me-1"></i> Upload CSV File
+                            </button>
+                          </div>
+                          <div v-if="csvFileName" class="csv-file-preview mt-3">
+                            <div class="preview-header">
+                              <h6>
+                                <i class="fas fa-file-csv me-2"></i> CSV File Uploaded
+                              </h6>
+                              <button type="button" class="btn-remove-preview" @click="clearCsvFile">
+                                <i class="fas fa-times"></i>
+                              </button>
+                            </div>
+                            <div class="preview-content">
+                              <div class="file-name">{{ csvFileName }}</div>
+                              <div class="file-details" v-if="csvColumns.length > 0">
+                                <div class="file-help-text mt-2">
+                                  <small class="text-muted"
+                                    >Use the <code>{ }</code> button next to the message box to insert column values</small
+                                  >
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          <div v-if="errors.csv_file" class="text-danger mt-1">
+                            {{ errors.csv_file }}
+                          </div>
+                        </div>
+
+                        <!-- Contact List -->
+                        <div v-if="form.contact_type === 'list'">
+                          <label for="contact_list" class="form-label fw-bold"
+                            >Select Contact Group<span class="text-danger">*</span></label
+                          >
+                          <MultiSelect
+                            id="contact_list"
+                            v-model="form.contact_list"
+                            :options="formattedContacts"
+                            track-by="id"
+                            label="label"
+                            placeholder="Select contact groups"
+                            :show-labels="false"
+                            :clear-on-select="false"
+                            :preserve-search="true"
+                            :error="errors.contact_list"
+                            @input="updateTagsCount"
+                            ref="contactMultiSelect"
+                          />
+                          <small class="form-text text-muted"
+                            >Click to search and select multiple contact groups</small
+                          >
+                        </div>
+                      </div>
+
                     </div>
                   </div>
-                  <textarea
-                    id="message"
-                    v-model="form.message"
-                    class="form-control"
-                    :class="{
-                      'is-invalid': errors.message,
-                      'has-column-selector':
-                        form.contact_type === 'csv' && csvFilePath,
-                    }"
-                    rows="5"
-                    placeholder="Enter your message here"
-                    @input="limitMessageLength"
-                    ref="messageTextareaRef"
-                  ></textarea>
-                </div>
-                <div class="d-flex justify-content-end mt-1">
-                  <div
-                    class="message-counter"
-                    :class="{
-                      'text-danger': remainingChars < 0,
-                      'text-warning':
-                        remainingChars >= 0 && remainingChars < 10,
-                      'over-limit': remainingChars < 0,
-                    }"
-                  >
-                    <span v-if="remainingChars >= 0"
-                      >{{ remainingChars }} characters left</span
-                    >
-                    <span v-else
-                      >{{ Math.abs(remainingChars) }} characters over
-                      limit</span
-                    >
-                  </div>
-                </div>
-                <div v-if="errors.message" class="invalid-feedback d-block">
-                  {{ errors.message }}
-                </div>
-              </div>
-
-              <!-- Schedule Message -->
-              <div class="form-group mb-4">
-                <div class="form-check mb-2">
-                  <input
-                    class="form-check-input"
-                    type="checkbox"
-                    id="scheduled"
-                    v-model="form.scheduled"
-                  />
-                  <label class="form-check-label fw-bold" for="scheduled"
-                    >Schedule SMS</label
-                  >
                 </div>
 
-                <div
-                  v-if="form.scheduled"
-                  class="schedule-picker-container mt-3"
-                >
-                  <div class="row">
-                    <div class="col-md-6">
-                      <label for="schedule_date" class="form-label"
-                        >Select Date<span class="text-danger">*</span></label
-                      >
-                      <input
-                        type="date"
-                        id="schedule_date"
-                        class="form-control"
-                        v-model="scheduleDateInput"
-                        :min="getTodayDate()"
-                        :class="{ 'is-invalid': errors.schedule_date }"
-                      />
+                <!-- ===== RIGHT COLUMN: Message & Delivery ===== -->
+                <div class="col-lg-6">
+                  <div class="form-column-card h-100 d-flex flex-column">
+                    <div class="form-column-header">
+                      <i class="fas fa-comment-alt me-2"></i>Message &amp; Delivery
                     </div>
+                    <div class="form-column-body d-flex flex-column flex-grow-1">
 
-                    <div class="col-md-6">
-                      <label for="schedule_time" class="form-label"
-                        >Select Time<span class="text-danger">*</span></label
-                      >
-                      <input
-                        type="time"
-                        id="schedule_time"
-                        class="form-control"
-                        v-model="scheduleTimeInput"
-                        :class="{ 'is-invalid': errors.schedule_date }"
-                      />
+                      <!-- Message Box -->
+                      <div class="form-group mb-4 flex-grow-1 d-flex flex-column">
+                        <label for="message" class="form-label fw-bold"
+                          >Message<span class="text-danger">*</span></label
+                        >
+                        <div class="position-relative flex-grow-1 d-flex flex-column">
+                          <div
+                            class="message-tools"
+                            v-if="form.contact_type === 'csv' && csvFilePath"
+                            @click.stop
+                          >
+                            <div class="dropdown">
+                              <button
+                                class="btn btn-sm btn-outline-secondary column-btn"
+                                type="button"
+                                @click="toggleColumnDropdown"
+                              >
+                                <span class="column-btn-icon">{ }</span>
+                              </button>
+                              <div class="column-dropdown" v-if="showColumnDropdown">
+                                <div class="column-dropdown-header">Insert Column</div>
+                                <div class="column-list">
+                                  <button
+                                    v-for="column in csvColumns"
+                                    :key="column"
+                                    class="column-item"
+                                    @click.prevent="insertColumnAtCursor(column)"
+                                    type="button"
+                                  >
+                                    {{ column }}
+                                  </button>
+                                </div>
+                                <div v-if="!csvColumns || csvColumns.length === 0" class="no-columns">
+                                  No columns available
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          <textarea
+                            id="message"
+                            v-model="form.message"
+                            class="form-control flex-grow-1 message-textarea"
+                            :class="{
+                              'is-invalid': errors.message,
+                              'has-column-selector': form.contact_type === 'csv' && csvFilePath,
+                            }"
+                            rows="8"
+                            placeholder="Enter your message here"
+                            @input="limitMessageLength"
+                            ref="messageTextareaRef"
+                          ></textarea>
+                        </div>
+                        <div class="d-flex justify-content-end mt-1">
+                          <div
+                            class="message-counter"
+                            :class="{
+                              'text-danger': remainingChars < 0,
+                              'text-warning': remainingChars >= 0 && remainingChars < 10,
+                              'over-limit': remainingChars < 0,
+                            }"
+                          >
+                            <span v-if="remainingChars >= 0">{{ remainingChars }} characters left</span>
+                            <span v-else>{{ Math.abs(remainingChars) }} characters over limit</span>
+                          </div>
+                        </div>
+                        <div v-if="errors.message" class="invalid-feedback d-block">
+                          {{ errors.message }}
+                        </div>
+                      </div>
+
+                      <!-- Schedule -->
+                      <div class="form-group mb-4">
+                        <div class="schedule-toggle">
+                          <div class="form-check mb-0">
+                            <input
+                              class="form-check-input"
+                              type="checkbox"
+                              id="scheduled"
+                              v-model="form.scheduled"
+                            />
+                            <label class="form-check-label fw-bold" for="scheduled"
+                              >Schedule SMS</label
+                            >
+                          </div>
+                        </div>
+
+                        <div v-if="form.scheduled" class="schedule-picker-container mt-3">
+                          <div class="row g-3">
+                            <div class="col-6">
+                              <label for="schedule_date" class="form-label"
+                                >Date<span class="text-danger">*</span></label
+                              >
+                              <input
+                                type="date"
+                                id="schedule_date"
+                                class="form-control"
+                                v-model="scheduleDateInput"
+                                :min="getTodayDate()"
+                                :class="{ 'is-invalid': errors.schedule_date }"
+                              />
+                            </div>
+                            <div class="col-6">
+                              <label for="schedule_time" class="form-label"
+                                >Time<span class="text-danger">*</span></label
+                              >
+                              <input
+                                type="time"
+                                id="schedule_time"
+                                class="form-control"
+                                v-model="scheduleTimeInput"
+                                :class="{ 'is-invalid': errors.schedule_date }"
+                              />
+                            </div>
+                          </div>
+                          <div class="mt-2">
+                            <span class="schedule-preview" v-if="scheduleDateInput && scheduleTimeInput">
+                              <i class="fas fa-info-circle text-primary"></i>
+                              Scheduled for:
+                              <strong>{{ formatDisplayDate(scheduleDateInput, scheduleTimeInput) }}</strong>
+                            </span>
+                          </div>
+                          <div v-if="errors.schedule_date" class="invalid-feedback d-block">
+                            {{ errors.schedule_date }}
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Submit Button -->
+                      <div class="mt-auto">
+                        <button
+                          type="button"
+                          class="btn btn-send w-100"
+                          @click="previewMessage"
+                          :disabled="isSubmitting"
+                        >
+                          <i class="fas fa-paper-plane me-2"></i>
+                          {{ form.scheduled ? "PREVIEW &amp; SCHEDULE SMS" : "PREVIEW &amp; SEND SMS" }}
+                        </button>
+                      </div>
+
                     </div>
                   </div>
-
-                  <div class="mt-2">
-                    <span
-                      class="schedule-preview"
-                      v-if="scheduleDateInput && scheduleTimeInput"
-                    >
-                      <i class="fas fa-info-circle text-primary"></i>
-                      Message will be sent on:
-                      <strong>{{
-                        formatDisplayDate(scheduleDateInput, scheduleTimeInput)
-                      }}</strong>
-                    </span>
-                  </div>
-
-                  <small class="form-text text-muted mt-1"
-                    >Select a future date and time for your SMS to be
-                    sent</small
-                  >
-                  <div
-                    v-if="errors.schedule_date"
-                    class="invalid-feedback d-block"
-                  >
-                    {{ errors.schedule_date }}
-                  </div>
                 </div>
-              </div>
 
-              <div class="mt-4">
-                <!-- <button type="button" class="btn btn-primary" @click="previewMessage">
-                  <i class="fas fa-eye me-1"></i> PREVIEW SMS
-                </button> -->
-                <button
-                  type="button"
-                  class="btn btn-primary ms-2"
-                  @click="previewMessage"
-                  :disabled="isSubmitting"
-                >
-                  <i class="fas fa-paper-plane me-1"></i>
-                  {{
-                    form.scheduled
-                      ? "PREVIEW & SCHEDULE SMS"
-                      : "PREVIEW & SEND SMS"
-                  }}
-                </button>
               </div>
             </form>
           </div>
@@ -639,10 +635,12 @@ let Modal;
 // Props from controller
 const props = defineProps({
   contacts: Array,
+  countries: Array,
 });
 
 // Form state
 const form = useForm({
+  country_id: "",
   text_title: "",
   contact_type: "manual", // Default to manual to avoid empty state
   recepient_contacts: "",
@@ -653,7 +651,7 @@ const form = useForm({
   csv_file: null,
   csv_file_path: "",
   csv_columns: [],
-  contacts_count: 0, // Add contacts_count field to store the number of recipients
+  contacts_count: 0,
 });
 
 // Additional reactive state
@@ -1118,6 +1116,11 @@ const validateForm = () => {
   console.log("CSV file path:", form.csv_file_path);
 
   // Required field validation
+  if (!form.country_id) {
+    errors.value.country_id = "Please select the SMS sending country";
+    isValid = false;
+  }
+
   if (!form.text_title) {
     errors.value.text_title = "The title field is required";
     isValid = false;
@@ -1218,6 +1221,7 @@ const previewMessage = async () => {
     }
 
     // Always add common fields first
+    formData.append("country_id", form.country_id);
     formData.append("text_title", form.text_title);
     formData.append("message", form.message);
     formData.append("contact_type", backendContactType);
@@ -1422,6 +1426,7 @@ const submitForm = () => {
 
       // Reset form
       form.reset();
+      form.country_id = "";
       csvFileName.value = "";
       scheduleDateInput.value = "";
       scheduleTimeInput.value = "";
@@ -1504,6 +1509,103 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* ===== Two-Column Layout ===== */
+.form-column-card {
+  border: 1px solid #e5e9f0;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.form-column-header {
+  background: linear-gradient(135deg, #f8f9fa, #eef1f6);
+  border-bottom: 1px solid #e5e9f0;
+  padding: 0.85rem 1.25rem;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #3a4a6b;
+  letter-spacing: 0.3px;
+  display: flex;
+  align-items: center;
+}
+
+.form-column-header i {
+  color: #0d6efd;
+  font-size: 0.95rem;
+}
+
+.form-column-body {
+  padding: 1.5rem 1.25rem;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Contact source radio group */
+.contact-source-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.contact-source-group .form-check-inline {
+  margin-right: 0;
+}
+
+/* Message textarea fills available height */
+.message-textarea {
+  min-height: 160px;
+  resize: vertical;
+}
+
+/* Schedule toggle row */
+.schedule-toggle {
+  padding: 0.65rem 1rem;
+  background-color: #f8f9fc;
+  border: 1px solid #e5e9f0;
+  border-radius: 8px;
+}
+
+/* Send button */
+.btn-send {
+  background: linear-gradient(135deg, #0d6efd, #0a58ca);
+  border: none;
+  color: #fff;
+  padding: 0.75rem 1.5rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  box-shadow: 0 3px 8px rgba(13, 110, 253, 0.3);
+}
+
+.btn-send:hover:not(:disabled),
+.btn-send:focus:not(:disabled) {
+  background: linear-gradient(135deg, #0b5ed7, #0a4fab);
+  transform: translateY(-2px);
+  box-shadow: 0 5px 14px rgba(13, 110, 253, 0.4);
+  color: #fff;
+}
+
+.btn-send:active {
+  transform: translateY(0);
+}
+
+.btn-send:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+/* Remove max-width on schedule picker inside column */
+.schedule-picker-container {
+  max-width: none !important;
+}
+
 /* General Form Enhancement */
 .card {
   border: none;
