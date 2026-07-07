@@ -753,28 +753,9 @@ const getProgressColor = (statusId, percentage) => {
   return "#6c757d";
 };
 
-// Setup progress polling when component mounts
-onMounted(() => {
-  console.log("Component mounted, setting up progress polling");
-
-  // Fetch progress data immediately
-  fetchProgressData();
-
-  // Setup interval for updates every 30 seconds to reduce system load
-  progressInterval.value = setInterval(() => {
-    console.log("Progress poll triggered (30-second interval)");
-    fetchProgressData();
-  }, 3000); // 30 seconds
-});
-
-// Cleanup interval when component unmounts
-onUnmounted(() => {
-  console.log("Component unmounting, cleaning up interval");
-  if (progressInterval.value) {
-    clearInterval(progressInterval.value);
-    progressInterval.value = null;
-  }
-});
+// Auto-polling disabled — refresh the page to see updated SMS status
+onMounted(() => {});
+onUnmounted(() => {});
 
 // Delete functionality
 const textToDelete = ref(null);
